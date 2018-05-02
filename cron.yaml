@@ -1,0 +1,5 @@
+cron:
+- description: "hello world"
+  url: /
+  target: beta
+  schedule: every 24 hours
