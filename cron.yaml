@@ -1,5 +1,4 @@
 cron:
-- description: "hello world"
-  url: /
-  target: beta
-  schedule: every 24 hours
+- description: "send me an email"
+  url: /send
+  schedule: every 10 minutes
