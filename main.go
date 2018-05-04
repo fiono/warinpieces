@@ -28,7 +28,7 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 
 func emailHandler(w http.ResponseWriter, r *http.Request) {
   ctx := appengine.NewContext(r)
-  err := mail.SendMail("frcondon@gmail.com", "hey bitch", "<strong>whats up</strong>", ctx)
+  err := mail.SendMail("fiona@witches.nyc", "hey fiona", "<strong>whats good</strong>", ctx)
   if err != nil {
     fmt.Fprintln(w, err)
   } else {

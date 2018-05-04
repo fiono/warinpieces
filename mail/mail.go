@@ -4,7 +4,8 @@ package mail
 
 import (
   "log"
-  "os"
+
+  "config"
 
   "golang.org/x/net/context"
 	"google.golang.org/appengine/urlfetch"
@@ -12,9 +13,12 @@ import (
 )
 
 func SendMail(to string, subject string, body string, ctx context.Context) error {
-  key := os.Getenv("sendgrid_api_key")
-  sg := sendgrid.NewSendGridClientWithApiKey(key)
+  cfg := config.LoadConfig()
+
+  sg := sendgrid.NewSendGridClientWithApiKey(cfg.Email.SendgridApiKey)
   sg.Client = urlfetch.Client(ctx)
+
+  log.Printf("Sending email to %s with subject %s", to, subject)
 
   message := sendgrid.NewMail()
   message.AddTo(to)
