@@ -1,8 +1,8 @@
 package config
 
 import (
-  "log"
   "io/ioutil"
+  "log"
 
   "github.com/BurntSushi/toml"
 )

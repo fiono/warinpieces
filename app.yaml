@@ -9,3 +9,6 @@ handlers:
 
 - url: /.*
   script: _go_app
+
+  env_variables:
+    GOOGLE_APPLICATION_CREDENTIALS = "cfg/Gutenbits-creds.json"
