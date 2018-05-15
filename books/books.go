@@ -7,17 +7,28 @@ import (
   "os"
   "regexp"
 
+  "config"
+
 	"cloud.google.com/go/storage"
 	"golang.org/x/net/context"
 )
 
-var ctx = context.Background()
-
 var bookEnd = regexp.MustCompile("^\\*\\*\\* END OF THIS PROJECT GUTENBERG .+ \\*\\*\\*$")
 var chapterHeading = regexp.MustCompile("^PART \\w+$")
 
-func chapterizeBook(bookId string, bkt *storage.BucketHandle) error {
-	inFile, err := os.Open(fmt.Sprintf("data/%s.txt", bookId))
+func getBucket(ctx context.Context) (bkt *storage.BucketHandle, err error) {
+  cfg := config.LoadConfig()
+
+  client, err := storage.NewClient(ctx)
+  if err != nil {
+    return nil, err
+  }
+
+  return client.Bucket(cfg.Storage.BucketName), nil
+}
+
+func ChapterizeBook(bookId string, ctx context.Context) error {
+	inFile, err := os.Open(fmt.Sprintf("test_data/%s.txt", bookId))
   defer inFile.Close()
   if err != nil {
     return err
@@ -25,6 +36,11 @@ func chapterizeBook(bookId string, bkt *storage.BucketHandle) error {
 
   scanner := bufio.NewScanner(inFile)
   chapterInd := 0
+
+  bkt, err := getBucket(ctx)
+  if err != nil {
+    return err
+  }
   var objWriter *storage.Writer
 
   for scanner.Scan() {
@@ -48,18 +64,16 @@ func chapterizeBook(bookId string, bkt *storage.BucketHandle) error {
     }
   }
 
+  if err := objWriter.Close(); err != nil {
+    return err
+  }
   return errors.New("Did not find end of book")
 }
 
 func main() {
-  client, err := storage.NewClient(ctx)
-  if err != nil {
-    fmt.Println(err)
-  }
+  var ctx = context.Background()
 
-  bkt := client.Bucket("gutenbits.appspot.com")
-
-  err = chapterizeBook("1399", bkt)
+  err := ChapterizeBook("1399", ctx)
   if err != nil {
     fmt.Println(err)
   }

@@ -22,7 +22,7 @@ func SendMail(to string, subject string, body string, ctx context.Context) error
 
   message := sendgrid.NewMail()
   message.AddTo(to)
-  message.SetFrom("fiona@witches.nyc")
+  message.SetFrom(cfg.Email.FromEmail)
   message.SetSubject(subject)
   message.SetHTML(body)
 

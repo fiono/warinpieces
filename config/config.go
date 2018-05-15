@@ -9,10 +9,17 @@ import (
 
 type GutenConfig struct {
   Email emailConfig
+  Storage storageConfig
 }
 
 type emailConfig struct {
   SendgridApiKey string `toml:"sendgrid_api_key"`
+  FromEmail string `toml:"from_email"`
+}
+
+type storageConfig struct {
+  ProjectId string `toml:"project_id"`
+  BucketName string `toml:"bucket_name"`
 }
 
 func LoadConfig() GutenConfig {
