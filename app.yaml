@@ -1,6 +1,9 @@
 runtime: go
 api_version: go1
 
+env_variables:
+  GOOGLE_APPLICATION_CREDENTIALS: "cfg/Gutenbits-creds.json"
+
 handlers:
 
 - url: /send
@@ -9,6 +12,3 @@ handlers:
 
 - url: /.*
   script: _go_app
-
-  env_variables:
-    GOOGLE_APPLICATION_CREDENTIALS = "cfg/Gutenbits-creds.json"
