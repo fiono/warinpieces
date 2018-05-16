@@ -1,4 +1,4 @@
-package main
+package books
 
 import (
   "bufio"
@@ -14,7 +14,7 @@ import (
 )
 
 var bookEnd = regexp.MustCompile("^\\*\\*\\* END OF THIS PROJECT GUTENBERG .+ \\*\\*\\*$")
-var chapterHeading = regexp.MustCompile("^PART \\w+$")
+var chapterHeading = regexp.MustCompile("^Chapter \\w+$")
 
 func getBucket(ctx context.Context) (bkt *storage.BucketHandle, err error) {
   cfg := config.LoadConfig()
@@ -28,7 +28,8 @@ func getBucket(ctx context.Context) (bkt *storage.BucketHandle, err error) {
 }
 
 func ChapterizeBook(bookId string, ctx context.Context) error {
-	inFile, err := os.Open(fmt.Sprintf("test_data/%s.txt", bookId))
+  path := fmt.Sprintf("test_data/%s.txt", bookId)
+	inFile, err := os.Open(path)
   defer inFile.Close()
   if err != nil {
     return err
@@ -68,13 +69,4 @@ func ChapterizeBook(bookId string, ctx context.Context) error {
     return err
   }
   return errors.New("Did not find end of book")
-}
-
-func main() {
-  var ctx = context.Background()
-
-  err := ChapterizeBook("1399", ctx)
-  if err != nil {
-    fmt.Println(err)
-  }
 }
