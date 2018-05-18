@@ -18,7 +18,9 @@ func main() {
     r.HandleFunc("/", rootHandler)
     r.HandleFunc("/send", emailHandler) // BIGF
 
-    r.HandleFunc("/books", addBookView).Methods("GET")
+    r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+
+    r.HandleFunc("/books", http.RedirectHandler("/static/html/book.html", http.StatusFound).ServeHTTP).Methods("GET")
     //r.HandleFunc("/deactivate", deactivateView).Methods("GET")
     //r.HandleFunc("/reactivate", reactivateView).Methods("GET")
     //r.HandleFunc("/validate", validateView).Methods("POST")
@@ -28,6 +30,7 @@ func main() {
     //r.HandleFunc("/api/subscriptions/validate/{subscription_id}", validateSubscriptionHandler).Methods("GET")
     //r.HandleFunc("/api/subscriptions/deactivate/{subscription_id}", deactivateSubscriptionHandler).Methods("GET")
     //r.HandleFunc("/api/subscriptions/reactivate/{subscription_id}", reactivateSubscriptionHandler).Methods("GET")
+
 
     http.Handle("/", r)
 
@@ -50,10 +53,6 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
   }
 
   renderViewByFilename(w, "index.html")
-}
-
-func addBookView(w http.ResponseWriter, r *http.Request) {
-  renderViewByFilename(w, "book.html")
 }
 
 func emailHandler(w http.ResponseWriter, r *http.Request) {
