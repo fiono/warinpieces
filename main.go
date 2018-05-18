@@ -56,14 +56,17 @@ func emailHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func newBookHandler(w http.ResponseWriter, r *http.Request) {
-  vars := mux.Vars(r)
-  book_id := vars["book_id"]
-  fmt.Fprintln(w, "New book with ID", book_id)
+  r.ParseForm()
+
+  bookId := r.Form["bookId"][0]
+  delimiter := r.Form["delim"][0]
 
   ctx := appengine.NewContext(r)
-  err := books.ChapterizeBook(book_id, ctx)
+  err := books.ChapterizeBook(bookId, delimiter, ctx)
   if err != nil {
     fmt.Fprintln(w, err)
     log.Println(err)
+  } else {
+    fmt.Fprintf(w, "New book with ID %s and delimiter %s", bookId, delimiter)
   }
 }

@@ -14,7 +14,6 @@ import (
 )
 
 var bookEnd = regexp.MustCompile("^\\*\\*\\* END OF THIS PROJECT GUTENBERG .+ \\*\\*\\*$")
-var chapterHeading = regexp.MustCompile("^Chapter \\w+$")
 
 func getBucket(ctx context.Context) (bkt *storage.BucketHandle, err error) {
   cfg := config.LoadConfig()
@@ -27,7 +26,9 @@ func getBucket(ctx context.Context) (bkt *storage.BucketHandle, err error) {
   return client.Bucket(cfg.Storage.BucketName), nil
 }
 
-func ChapterizeBook(bookId string, ctx context.Context) error {
+func ChapterizeBook(bookId string, delimiter string, ctx context.Context) error {
+  chapterHeading := regexp.MustCompile(fmt.Sprintf("^%s \\w+$", delimiter))
+
   path := fmt.Sprintf("test_data/%s.txt", bookId)
 	inFile, err := os.Open(path)
   defer inFile.Close()
