@@ -10,5 +10,9 @@ handlers:
   script: _go_app
   login: admin
 
+
+- url: /static
+  static_dir: static
+
 - url: /.*
   script: _go_app

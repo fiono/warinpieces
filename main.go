@@ -2,9 +2,9 @@ package main
 
 import (
     "fmt"
-		"log"
+    "log"
     "net/http"
-    "os"
+    "text/template"
 
     "books"
     "mail"
@@ -18,7 +18,7 @@ func main() {
     r.HandleFunc("/", rootHandler)
     r.HandleFunc("/send", emailHandler) // BIGF
 
-    r.HandleFunc("/books/new/{book_id}", newBookHandler)
+    r.HandleFunc("/books/new/", newBookHandler)
 
     //r.HandleFunc("/subscriptions/new/", newSubscriptionHandler).Methods("POST")
     //r.HandleFunc("/subscriptions/validate/{subscription_id}", validateSubscriptionHandler).Methods("GET")
@@ -36,7 +36,13 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    fmt.Fprintln(w, "Hello, bigf!")
+    var t = template.Must(template.New("index.html").ParseFiles("static/html/index.html"))
+
+    err := t.Execute(w, "nil")
+    if err != nil {
+      log.Println(err)
+      fmt.Println(err)
+    }
 }
 
 func emailHandler(w http.ResponseWriter, r *http.Request) {
@@ -61,6 +67,3 @@ func newBookHandler(w http.ResponseWriter, r *http.Request) {
     log.Println(err)
   }
 }
-
-//func newSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
-//}
