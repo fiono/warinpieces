@@ -10,6 +10,7 @@ import (
 type GutenConfig struct {
   Email emailConfig
   Storage storageConfig
+  Db dbConfig
 }
 
 type emailConfig struct {
@@ -20,6 +21,10 @@ type emailConfig struct {
 type storageConfig struct {
   ProjectId string `toml:"project_id"`
   BucketName string `toml:"bucket_name"`
+}
+
+type dbConfig struct {
+  ConnectionStr string `toml:"connection_str"`
 }
 
 func LoadConfig() GutenConfig {

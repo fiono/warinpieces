@@ -48,7 +48,7 @@ func main() {
      Endpoints
     */
     r.HandleFunc("/api/books/new/", newBookHandler).Methods("POST")
-    //r.HandleFunc("/api/subscriptions/new/", newSubscriptionHandler).Methods("POST")
+    r.HandleFunc("/api/subscriptions/new/", newSubscriptionHandler)//.Methods("POST")
     //r.HandleFunc("/api/subscriptions/validate/{subscription_id}", validateSubscriptionHandler).Methods("GET")
     //r.HandleFunc("/api/subscriptions/deactivate/{subscription_id}", deactivateSubscriptionHandler).Methods("GET")
     //r.HandleFunc("/api/subscriptions/reactivate/{subscription_id}", reactivateSubscriptionHandler).Methods("GET")
@@ -84,4 +84,20 @@ func newBookHandler(w http.ResponseWriter, r *http.Request) {
   }
 
   fmt.Fprintf(w, "New book with ID %s and delimiter %s", bookId, delimiter)
+}
+
+func newSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
+	_, err := DbConn()
+	if err != nil {
+		log.Println(err)
+	} else {
+    fmt.Fprintf(w, "BIGF")
+	}
+
+  //r.ParseForm()
+
+  //bookId := r.Form["bookId"][0]
+  //emailAddr := r.Form["email"][0]
+
+  //fmt.Fprintf(w, "New subscription with ID %s and address %s", bookId, emailAddr)
 }
