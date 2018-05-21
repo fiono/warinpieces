@@ -2,5 +2,4 @@ cfg/
 scripts/
 test_data/
 
-node_modules/
 static/lib/
