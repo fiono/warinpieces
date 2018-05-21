@@ -15,22 +15,26 @@ import (
 
 func main() {
     r := mux.NewRouter()
-    r.HandleFunc("/", rootHandler)
-    r.HandleFunc("/send", emailHandler) // BIGF
 
+    // BIGF: temp testing endpoint
+    r.HandleFunc("/send", emailHandler)
+
+    // Serve static assets
     r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
+    // Views
+    r.HandleFunc("/", http.RedirectHandler("/static/html/index.html", http.StatusFound).ServeHTTP).Methods("GET")
     r.HandleFunc("/books", http.RedirectHandler("/static/html/book.html", http.StatusFound).ServeHTTP).Methods("GET")
     //r.HandleFunc("/deactivate", deactivateView).Methods("GET")
     //r.HandleFunc("/reactivate", reactivateView).Methods("GET")
     //r.HandleFunc("/validate", validateView).Methods("POST")
 
+    // Endpoints
     r.HandleFunc("/api/books/new/", newBookHandler).Methods("POST")
     //r.HandleFunc("/api/subscriptions/new/", newSubscriptionHandler).Methods("POST")
     //r.HandleFunc("/api/subscriptions/validate/{subscription_id}", validateSubscriptionHandler).Methods("GET")
     //r.HandleFunc("/api/subscriptions/deactivate/{subscription_id}", deactivateSubscriptionHandler).Methods("GET")
     //r.HandleFunc("/api/subscriptions/reactivate/{subscription_id}", reactivateSubscriptionHandler).Methods("GET")
-
 
     http.Handle("/", r)
 
@@ -44,15 +48,6 @@ func renderViewByFilename(w http.ResponseWriter, name string) {
     log.Println(err)
     fmt.Println(err)
   }
-}
-
-func rootHandler(w http.ResponseWriter, r *http.Request) {
-  if r.URL.Path != "/" {
-      http.Redirect(w, r, "/", http.StatusFound)
-      return
-  }
-
-  renderViewByFilename(w, "index.html")
 }
 
 func emailHandler(w http.ResponseWriter, r *http.Request) {
