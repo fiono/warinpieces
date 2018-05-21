@@ -48,7 +48,7 @@ func main() {
      Endpoints
     */
     r.HandleFunc("/api/books/new/", newBookHandler).Methods("POST")
-    r.HandleFunc("/api/subscriptions/new/", newSubscriptionHandler)//.Methods("POST")
+    r.HandleFunc("/api/subscriptions/new/", newSubscriptionHandler).Methods("POST")
     //r.HandleFunc("/api/subscriptions/validate/{subscription_id}", validateSubscriptionHandler).Methods("GET")
     //r.HandleFunc("/api/subscriptions/deactivate/{subscription_id}", deactivateSubscriptionHandler).Methods("GET")
     //r.HandleFunc("/api/subscriptions/reactivate/{subscription_id}", reactivateSubscriptionHandler).Methods("GET")
@@ -62,7 +62,7 @@ func emailHandler(w http.ResponseWriter, r *http.Request) {
   ctx := appengine.NewContext(r)
   err := mail.SendMail("fiona@witches.nyc", "hey fiona", "<strong>whats good</strong>", ctx)
   if err != nil {
-    fmt.Fprintln(w, err)
+    logAndPrintError(w, err)
     return
   }
 
@@ -76,28 +76,39 @@ func newBookHandler(w http.ResponseWriter, r *http.Request) {
   delimiter := r.Form["delim"][0]
 
   ctx := appengine.NewContext(r)
-  err := books.ChapterizeBook(bookId, delimiter, ctx)
+  meta, err := books.ChapterizeBook(bookId, delimiter, ctx)
   if err != nil {
-    fmt.Fprintln(w, err)
-    log.Println(err)
+    logAndPrintError(w, err)
     return
   }
 
-  fmt.Fprintf(w, "New book with ID %s and delimiter %s", bookId, delimiter)
+  res, err := NewBook(meta)
+  if err != nil {
+    logAndPrintError(w, err)
+    return
+  }
+
+  fmt.Fprintf(w, "New book %s", res)
 }
 
 func newSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
-	_, err := DbConn()
-	if err != nil {
-		log.Println(err)
-	} else {
-    fmt.Fprintf(w, "BIGF")
-	}
+  r.ParseForm()
 
-  //r.ParseForm()
+  bookId := r.Form["bookId"][0]
+  emailAddr := r.Form["email"][0]
 
-  //bookId := r.Form["bookId"][0]
-  //emailAddr := r.Form["email"][0]
+  res, err := NewSubscription(bookId, emailAddr)
+  if err != nil {
+    logAndPrintError(w, err)
+    return
+  }
+
+  fmt.Fprintln(w, res)
 
   //fmt.Fprintf(w, "New subscription with ID %s and address %s", bookId, emailAddr)
+}
+
+func logAndPrintError(w http.ResponseWriter, err error) {
+  fmt.Fprintln(w, err)
+  log.Println(err)
 }

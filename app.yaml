@@ -5,7 +5,6 @@ env_variables:
   GOOGLE_APPLICATION_CREDENTIALS: "cfg/Gutenbits-creds.json"
 
 handlers:
-
 - url: /send
   script: _go_app
   login: admin

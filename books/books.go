@@ -13,7 +13,18 @@ import (
 	"golang.org/x/net/context"
 )
 
+type BookMeta struct {
+  BookId string
+  Title string
+  Author string
+  Chapters int
+  Delimiter string
+}
+
+// this is gnarly and i should be using the metadata
 var bookEnd = regexp.MustCompile("^\\*\\*\\* END OF THIS PROJECT GUTENBERG .+ \\*\\*\\*$")
+var authorPatt = regexp.MustCompile("^Author: (.*)$")
+var titlePatt = regexp.MustCompile("^Title: (.*)$")
 
 func getBucket(ctx context.Context) (bkt *storage.BucketHandle, err error) {
   cfg := config.LoadConfig()
@@ -26,14 +37,17 @@ func getBucket(ctx context.Context) (bkt *storage.BucketHandle, err error) {
   return client.Bucket(cfg.Storage.BucketName), nil
 }
 
-func ChapterizeBook(bookId string, delimiter string, ctx context.Context) error {
-  chapterHeading := regexp.MustCompile(fmt.Sprintf("^%s \\w+$", delimiter))
+func ChapterizeBook(bookId string, delimiter string, ctx context.Context) (meta BookMeta, err error) {
+  chapterPatt := regexp.MustCompile(fmt.Sprintf("^%s \\w+$", delimiter))
+
+  var author string
+  var title string
 
   path := fmt.Sprintf("test_data/%s.txt", bookId)
 	inFile, err := os.Open(path)
   defer inFile.Close()
   if err != nil {
-    return err
+    return meta, err
   }
 
   scanner := bufio.NewScanner(inFile)
@@ -41,33 +55,36 @@ func ChapterizeBook(bookId string, delimiter string, ctx context.Context) error 
 
   bkt, err := getBucket(ctx)
   if err != nil {
-    return err
+    return meta, err
   }
   var objWriter *storage.Writer
 
   for scanner.Scan() {
     line := scanner.Text()
     if bookEnd.MatchString(line) {
-      return nil
-    } else if chapterHeading.MatchString(line) {
+      return BookMeta{bookId, title, author, chapterInd, delimiter}, nil
+    } else if authorPatt.MatchString(line) {
+      author = authorPatt.FindStringSubmatch(line)[1]
+    } else if titlePatt.MatchString(line) {
+      title = titlePatt.FindStringSubmatch(line)[1]
+    } else if chapterPatt.MatchString(line) {
       if objWriter != nil {
         if err := objWriter.Close(); err != nil {
-          return err
+          return meta, err
         }
       }
-
       chapterInd++
-
-      objWriter = bkt.Object(fmt.Sprintf("bigf/data/%s_%d.txt", bookId, chapterInd)).NewWriter(ctx)
+      objWriter = bkt.Object(fmt.Sprintf("books/%s/%d.txt", bookId, chapterInd)).NewWriter(ctx)
     } else if objWriter != nil {
       if _, err := objWriter.Write([]byte(scanner.Text() + "\n")); err != nil {
-        return err
+        return meta, err
       }
     }
   }
 
-  if err := objWriter.Close(); err != nil {
-    return err
+  err = objWriter.Close()
+  if err != nil {
+    return meta, err
   }
-  return errors.New("Did not find end of book")
+  return meta, errors.New("Did not find end of book")
 }
