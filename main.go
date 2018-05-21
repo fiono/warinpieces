@@ -23,8 +23,8 @@ func main() {
     r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
     // Views
-    r.HandleFunc("/", http.RedirectHandler("/static/html/index.html", http.StatusFound).ServeHTTP).Methods("GET")
-    r.HandleFunc("/books", http.RedirectHandler("/static/html/book.html", http.StatusFound).ServeHTTP).Methods("GET")
+    r.HandleFunc("/", (&tplRenderer{"index"}).renderView).Methods("GET")
+    r.HandleFunc("/books/", (&tplRenderer{"book"}).renderView).Methods("GET")
     //r.HandleFunc("/deactivate", deactivateView).Methods("GET")
     //r.HandleFunc("/reactivate", reactivateView).Methods("GET")
     //r.HandleFunc("/validate", validateView).Methods("POST")
@@ -41,8 +41,15 @@ func main() {
     appengine.Main()
 }
 
-func renderViewByFilename(w http.ResponseWriter, name string) {
-  t := template.Must(template.New(name).ParseFiles(fmt.Sprintf("static/html/%s", name)))
+type tplRenderer struct {
+  tplName string
+}
+
+func (tr *tplRenderer) renderView(w http.ResponseWriter, r *http.Request) {
+  filename := fmt.Sprintf("%s.tmpl", tr.tplName)
+  filepath := fmt.Sprintf("static/tpl/%s", filename)
+
+  t := template.Must(template.New(filename).ParseFiles(filepath))
   err := t.Execute(w, nil)
   if err != nil {
     log.Println(err)
