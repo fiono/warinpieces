@@ -1,16 +1,16 @@
 package main
 
 import (
-    "fmt"
-    "log"
-    "net/http"
-    "text/template"
+  "fmt"
+  "log"
+  "net/http"
 
-    "books"
-    "mail"
+  "books"
+  "mail"
+  "views"
 
-    "github.com/gorilla/mux"
-    "google.golang.org/appengine"
+  "github.com/gorilla/mux"
+  "google.golang.org/appengine"
 )
 
 func main() {
@@ -22,14 +22,31 @@ func main() {
     // Serve static assets
     r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
-    // Views
-    r.HandleFunc("/", (&tplRenderer{[]string{"index", "subscription_form"}}).renderView).Methods("GET")
-    r.HandleFunc("/books/", (&tplRenderer{[]string{"book"}}).renderView).Methods("GET")
-    //r.HandleFunc("/deactivate", deactivateView).Methods("GET")
-    //r.HandleFunc("/reactivate", reactivateView).Methods("GET")
+    /*
+     Views
+    */
+    r.HandleFunc("/books/", (&views.TplRenderer{Tpl: "book"}).RenderView).Methods("GET")
+
+    r.HandleFunc("/", (&views.TplRenderer{
+      "subscription_form",
+      views.SubscriptionFormView{"new subscription", "/api/subscriptions/new/"},
+    }).RenderView).Methods("GET")
+
+    r.HandleFunc("/deactivate/", (&views.TplRenderer{
+      "subscription_form",
+      views.SubscriptionFormView{"pause subscription", "/api/subscriptions/deactivate/"},
+    }).RenderView).Methods("GET")
+
+    r.HandleFunc("/reactivate/", (&views.TplRenderer{
+      "subscription_form",
+      views.SubscriptionFormView{"reactivate subscription", "/api/subscriptions/reactivate/"},
+    }).RenderView).Methods("GET")
+
     //r.HandleFunc("/validate", validateView).Methods("POST")
 
-    // Endpoints
+    /*
+     Endpoints
+    */
     r.HandleFunc("/api/books/new/", newBookHandler).Methods("POST")
     //r.HandleFunc("/api/subscriptions/new/", newSubscriptionHandler).Methods("POST")
     //r.HandleFunc("/api/subscriptions/validate/{subscription_id}", validateSubscriptionHandler).Methods("GET")
@@ -39,28 +56,6 @@ func main() {
     http.Handle("/", r)
 
     appengine.Main()
-}
-
-type tplRenderer struct {
-  tpls []string
-}
-
-func tplPath(tplName string) string {
-  return fmt.Sprintf("static/tpl/%s.tmpl", tplName)
-}
-
-func (tr *tplRenderer) renderView(w http.ResponseWriter, r *http.Request) {
-  allTpls := []string{tplPath("base")}
-  for _, name := range tr.tpls {
-    allTpls = append(allTpls, tplPath(name))
-  }
-
-  t := template.Must(template.New("base.tmpl").ParseFiles(allTpls...))
-  err := t.Execute(w, nil)
-  if err != nil {
-    log.Println(err)
-    fmt.Println(err)
-  }
 }
 
 func emailHandler(w http.ResponseWriter, r *http.Request) {
