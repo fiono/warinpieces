@@ -23,8 +23,8 @@ func main() {
     r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
     // Views
-    r.HandleFunc("/", (&tplRenderer{"index"}).renderView).Methods("GET")
-    r.HandleFunc("/books/", (&tplRenderer{"book"}).renderView).Methods("GET")
+    r.HandleFunc("/", (&tplRenderer{"index", []string{"subscription_form"}}).renderView).Methods("GET")
+    r.HandleFunc("/books/", (&tplRenderer{tplName: "book"}).renderView).Methods("GET")
     //r.HandleFunc("/deactivate", deactivateView).Methods("GET")
     //r.HandleFunc("/reactivate", reactivateView).Methods("GET")
     //r.HandleFunc("/validate", validateView).Methods("POST")
@@ -43,13 +43,22 @@ func main() {
 
 type tplRenderer struct {
   tplName string
+  otherTpls []string
+}
+
+func tplPath(tplName string) string {
+  return fmt.Sprintf("static/tpl/%s.tmpl", tplName)
 }
 
 func (tr *tplRenderer) renderView(w http.ResponseWriter, r *http.Request) {
-  filename := fmt.Sprintf("%s.tmpl", tr.tplName)
-  filepath := fmt.Sprintf("static/tpl/%s", filename)
+  filepath := tplPath(tr.tplName)
 
-  t := template.Must(template.New(filename).ParseFiles(filepath))
+  allTpls := []string{filepath}
+  for _, name := range tr.otherTpls {
+    allTpls = append(allTpls, tplPath(name))
+  }
+
+  t := template.Must(template.New(fmt.Sprintf("%s.tmpl", tr.tplName)).ParseFiles(allTpls...))
   err := t.Execute(w, nil)
   if err != nil {
     log.Println(err)

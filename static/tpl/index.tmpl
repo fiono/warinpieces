@@ -10,19 +10,7 @@
     <h1 class="m-2">new subscription</h1>
 
     <form action="/api/subscriptions/new/" method="post">
-
-      <div class="m-2">
-        Book ID:<br>
-        <input type="text" name="bookId">
-      </div>
-
-      <div class="m-2">
-        Email address:<br>
-        <input type="text" name="email">
-      </div>
-
-      <input type="submit" value="submit" class="m-2">
-
+      {{template "subscription-form"}}
     </form>
   </div>
 
