@@ -6,7 +6,6 @@ import (
   "net/http"
 
   "books"
-  "mail"
   "views"
 
   "github.com/gorilla/mux"
@@ -17,7 +16,7 @@ func main() {
     r := mux.NewRouter()
 
     // BIGF: temp testing endpoint
-    r.HandleFunc("/send", emailHandler)
+    r.HandleFunc("/send/", emailHandler)
 
     // Serve static assets
     r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
@@ -60,7 +59,13 @@ func main() {
 
 func emailHandler(w http.ResponseWriter, r *http.Request) {
   ctx := appengine.NewContext(r)
-  err := mail.SendMail("fiona@witches.nyc", "hey fiona", "<strong>whats good</strong>", ctx)
+
+  body, err := books.GetChapter("2600", 1, ctx)
+  if err != nil {
+    logAndPrintError(w, err)
+  }
+
+  err = SendMail("frcondon@gmail.com", "hey fiona", body, ctx)
   if err != nil {
     logAndPrintError(w, err)
     return
