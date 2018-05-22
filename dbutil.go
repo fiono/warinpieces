@@ -16,6 +16,7 @@ func dbConn() (db *sql.DB, err error) {
 
 func NewBook(bookMeta books.BookMeta) (res sql.Result, err error) {
   db, err := dbConn()
+  defer db.Close()
   if err != nil {
     return
   }
@@ -32,6 +33,7 @@ func NewBook(bookMeta books.BookMeta) (res sql.Result, err error) {
 
 func NewEmailAudit(subscriptionId string, emailLen int, success bool) (res sql.Result, err error) {
   db, err := dbConn()
+  defer db.Close()
   if err != nil {
     return
   }
@@ -44,8 +46,9 @@ func NewEmailAudit(subscriptionId string, emailLen int, success bool) (res sql.R
   )
 }
 
-func NewSubscription(bookId string, emailAddr string) (res sql.Result, err error) {
+func NewSubscription(bookId, emailAddr string) (res sql.Result, err error) {
   db, err := dbConn()
+  defer db.Close()
   if err != nil {
     return nil, err
   }
@@ -60,6 +63,7 @@ func NewSubscription(bookId string, emailAddr string) (res sql.Result, err error
 
 func GetBook(book_id string) (book books.BookMeta, err error) {
   db, err := dbConn()
+  defer db.Close()
   if err != nil {
     return
   }
@@ -80,6 +84,7 @@ func GetBook(book_id string) (book books.BookMeta, err error) {
 
 func GetSubscription(subscription_id string) (sub books.SubscriptionMeta, err error) {
   db, err := dbConn()
+  defer db.Close()
   if err != nil {
     return
   }
@@ -101,6 +106,7 @@ func GetSubscription(subscription_id string) (sub books.SubscriptionMeta, err er
 
 func IncrementChaptersSent(subscription_id string) error {
   db, err := dbConn()
+  defer db.Close()
   if err != nil {
     return err
   }
