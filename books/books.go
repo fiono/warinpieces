@@ -9,8 +9,8 @@ import (
 
   "config"
 
-	"cloud.google.com/go/storage"
-	"golang.org/x/net/context"
+  "cloud.google.com/go/storage"
+  "golang.org/x/net/context"
 )
 
 const maxChapterLen = 100000

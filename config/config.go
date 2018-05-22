@@ -28,9 +28,9 @@ type dbConfig struct {
 }
 
 func LoadConfig() GutenConfig {
-	blob, err := ioutil.ReadFile("cfg/app.toml")
-	if err != nil {
-		log.Println(err)
+  blob, err := ioutil.ReadFile("cfg/app.toml")
+  if err != nil {
+    log.Println(err)
   }
 
   var conf GutenConfig
@@ -38,5 +38,5 @@ func LoadConfig() GutenConfig {
     log.Println(err)
   }
 
-	return conf
+  return conf
 }
