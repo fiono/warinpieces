@@ -13,6 +13,8 @@ import (
 	"golang.org/x/net/context"
 )
 
+const maxChapterLen = 100000
+
 type BookMeta struct {
   BookId string
   Title string
@@ -26,6 +28,10 @@ var bookEnd = regexp.MustCompile("^\\*\\*\\* END OF THIS PROJECT GUTENBERG .+ \\
 var authorPatt = regexp.MustCompile("^Author: (.*)$")
 var titlePatt = regexp.MustCompile("^Title: (.*)$")
 
+func getPath(bookId string, chapterInd int) string {
+  return fmt.Sprintf("books/%s/%d.txt", bookId, chapterInd)
+}
+
 func getBucket(ctx context.Context) (bkt *storage.BucketHandle, err error) {
   cfg := config.LoadConfig()
 
@@ -37,54 +43,73 @@ func getBucket(ctx context.Context) (bkt *storage.BucketHandle, err error) {
   return client.Bucket(cfg.Storage.BucketName), nil
 }
 
+func GetChapter(bookId string, chapter int, ctx context.Context) (body string, err error) {
+  bkt, err := getBucket(ctx)
+  if err != nil {
+    return
+  }
+
+  obj := bkt.Object(getPath(bookId, chapter))
+  r, err := obj.NewReader(ctx)
+  if err != nil {
+    return
+  }
+  defer r.Close()
+
+  buf := make([]byte, maxChapterLen)
+  n, err := bufio.NewReader(r).Read(buf)
+  if err != nil {
+    return
+  }
+
+  return string(buf[:n]), nil
+}
+
 func ChapterizeBook(bookId string, delimiter string, ctx context.Context) (meta BookMeta, err error) {
   chapterPatt := regexp.MustCompile(fmt.Sprintf("^%s \\w+$", delimiter))
 
   var author string
   var title string
+  var chapterInd = 0
 
   path := fmt.Sprintf("test_data/%s.txt", bookId)
 	inFile, err := os.Open(path)
   defer inFile.Close()
   if err != nil {
-    return meta, err
+    return
   }
 
   scanner := bufio.NewScanner(inFile)
-  chapterInd := 0
 
   bkt, err := getBucket(ctx)
   if err != nil {
-    return meta, err
+    return
   }
+
   var objWriter *storage.Writer
 
   for scanner.Scan() {
     line := scanner.Text()
     if bookEnd.MatchString(line) {
       return BookMeta{bookId, title, author, chapterInd, delimiter}, nil
-    } else if authorPatt.MatchString(line) {
+    } else if authorPatt.MatchString(line) && author == "" {
       author = authorPatt.FindStringSubmatch(line)[1]
-    } else if titlePatt.MatchString(line) {
+    } else if titlePatt.MatchString(line) && title == "" {
       title = titlePatt.FindStringSubmatch(line)[1]
     } else if chapterPatt.MatchString(line) {
-      if objWriter != nil {
-        if err := objWriter.Close(); err != nil {
-          return meta, err
-        }
-      }
       chapterInd++
-      objWriter = bkt.Object(fmt.Sprintf("books/%s/%d.txt", bookId, chapterInd)).NewWriter(ctx)
+
+      if objWriter != nil {
+        objWriter.Close()
+      }
+      objWriter = bkt.Object(getPath(bookId, chapterInd)).NewWriter(ctx)
     } else if objWriter != nil {
-      if _, err := objWriter.Write([]byte(scanner.Text() + "\n")); err != nil {
-        return meta, err
+      if _, err = objWriter.Write([]byte(scanner.Text() + "\n")); err != nil {
+        return
       }
     }
   }
 
-  err = objWriter.Close()
-  if err != nil {
-    return meta, err
-  }
+  objWriter.Close()
   return meta, errors.New("Did not find end of book")
 }

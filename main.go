@@ -82,13 +82,13 @@ func newBookHandler(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  res, err := NewBook(meta)
+  _, err = NewBook(meta)
   if err != nil {
     logAndPrintError(w, err)
     return
   }
 
-  fmt.Fprintf(w, "New book %s", res)
+  fmt.Fprintf(w, "New book: ", meta)
 }
 
 func newSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
@@ -97,15 +97,13 @@ func newSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
   bookId := r.Form["bookId"][0]
   emailAddr := r.Form["email"][0]
 
-  res, err := NewSubscription(bookId, emailAddr)
+  _, err := NewSubscription(bookId, emailAddr)
   if err != nil {
     logAndPrintError(w, err)
     return
   }
 
-  fmt.Fprintln(w, res)
-
-  //fmt.Fprintf(w, "New subscription with ID %s and address %s", bookId, emailAddr)
+  fmt.Fprintf(w, "New subscription with ID %s and address %s", bookId, emailAddr)
 }
 
 func logAndPrintError(w http.ResponseWriter, err error) {
