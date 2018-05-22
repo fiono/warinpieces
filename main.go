@@ -16,7 +16,7 @@ func main() {
     r := mux.NewRouter()
 
     // BIGF: temp testing endpoint
-    r.HandleFunc("/send/", emailHandler)
+    r.HandleFunc("/send/{subscription_id}/", emailHandler)
 
     // Serve static assets
     r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
@@ -59,13 +59,33 @@ func main() {
 
 func emailHandler(w http.ResponseWriter, r *http.Request) {
   ctx := appengine.NewContext(r)
+  vars := mux.Vars(r)
 
-  body, err := books.GetChapter("2600", 1, ctx)
+  sub, err := GetSubscription(vars["subscription_id"])
   if err != nil {
     logAndPrintError(w, err)
+    return
   }
 
-  err = SendMail("frcondon@gmail.com", "hey fiona", body, ctx)
+  bookMeta, err := GetBook(sub.BookId)
+  if err != nil {
+    logAndPrintError(w, err)
+    return
+  }
+
+  body, err := books.GetChapter(sub.BookId, sub.ChaptersSent + 1, ctx)
+  if err != nil {
+    logAndPrintError(w, err)
+    return
+  }
+
+  err = SendMail(sub.Email, bookMeta.Title, body, ctx)
+  if err != nil {
+    logAndPrintError(w, err)
+    return
+  }
+
+  err = IncrementChaptersSent(sub.SubscriptionId)
   if err != nil {
     logAndPrintError(w, err)
     return

@@ -26,6 +26,5 @@ func SendMail(to string, subject string, body string, ctx context.Context) error
   message.SetSubject(subject)
   message.SetHTML(body)
 
-  err := sg.Send(message)
-  return err
+  return sg.Send(message)
 }

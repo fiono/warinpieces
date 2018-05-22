@@ -23,6 +23,15 @@ type BookMeta struct {
   Delimiter string
 }
 
+type SubscriptionMeta struct {
+  SubscriptionId string
+  BookId string
+  Email string
+  ChaptersSent int
+  Active bool
+  Validated bool
+}
+
 // this is gnarly and i should be using the metadata
 var bookEnd = regexp.MustCompile("^\\*\\*\\* END OF THIS PROJECT GUTENBERG .+ \\*\\*\\*$")
 var authorPatt = regexp.MustCompile("^Author: (.*)$")
@@ -37,7 +46,7 @@ func getBucket(ctx context.Context) (bkt *storage.BucketHandle, err error) {
 
   client, err := storage.NewClient(ctx)
   if err != nil {
-    return nil, err
+    return
   }
 
   return client.Bucket(cfg.Storage.BucketName), nil
@@ -68,8 +77,7 @@ func GetChapter(bookId string, chapter int, ctx context.Context) (body string, e
 func ChapterizeBook(bookId string, delimiter string, ctx context.Context) (meta BookMeta, err error) {
   chapterPatt := regexp.MustCompile(fmt.Sprintf("^%s \\w+$", delimiter))
 
-  var author string
-  var title string
+  var author, title string
   var chapterInd = 0
 
   path := fmt.Sprintf("test_data/%s.txt", bookId)
