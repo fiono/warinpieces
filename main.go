@@ -16,7 +16,7 @@ func main() {
     r := mux.NewRouter()
 
     // BIGF: temp testing endpoint
-    r.HandleFunc("/send/{subscription_id}/", emailHandler)
+    r.HandleFunc("/send/{subscription_id}/", cronHandler)
 
     // Serve static assets
     r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
@@ -57,7 +57,7 @@ func main() {
     appengine.Main()
 }
 
-func emailHandler(w http.ResponseWriter, r *http.Request) {
+func cronHandler(w http.ResponseWriter, r *http.Request) {
   ctx := appengine.NewContext(r)
   vars := mux.Vars(r)
 

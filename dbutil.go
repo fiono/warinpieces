@@ -30,6 +30,20 @@ func NewBook(bookMeta books.BookMeta) (res sql.Result, err error) {
   )
 }
 
+func NewEmailAudit(subscriptionId string, emailLen int, success bool) (res sql.Result, err error) {
+  db, err := dbConn()
+  if err != nil {
+    return
+  }
+
+  return db.Exec(
+    "INSERT INTO email_audit (subscription_id, email_len, send_datetime, is_success) VALUES ($1, $2, NOW(), $3)",
+    subscriptionId,
+    emailLen,
+    success,
+  )
+}
+
 func NewSubscription(bookId string, emailAddr string) (res sql.Result, err error) {
   db, err := dbConn()
   if err != nil {
