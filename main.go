@@ -4,11 +4,13 @@ import (
   "fmt"
   "log"
   "net/http"
+  "strings"
 
   "books"
   "views"
 
   "github.com/gorilla/mux"
+  "golang.org/x/net/context"
   "google.golang.org/appengine"
 )
 
@@ -18,28 +20,33 @@ func main() {
     // BIGF: temp testing endpoint
     r.HandleFunc("/send/{subscription_id}/", cronHandler)
 
-    // Serve static assets
+    /*
+     Serve static assets
+    */
     r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
     /*
      Views
     */
-    r.HandleFunc("/books/", (&views.TplRenderer{Tpl: "book"}).RenderView).Methods("GET")
+    r.HandleFunc("/books/", (&views.TplRenderer{Tpl: "book"}).ServeView).Methods("GET")
 
     r.HandleFunc("/", (&views.TplRenderer{
       "subscription_form",
       views.SubscriptionFormView{"new subscription", "/api/subscriptions/new/"},
-    }).RenderView).Methods("GET")
+      true,
+    }).ServeView).Methods("GET")
 
     r.HandleFunc("/deactivate/", (&views.TplRenderer{
       "subscription_form",
       views.SubscriptionFormView{"pause subscription", "/api/subscriptions/deactivate/"},
-    }).RenderView).Methods("GET")
+      true,
+    }).ServeView).Methods("GET")
 
     r.HandleFunc("/reactivate/", (&views.TplRenderer{
       "subscription_form",
       views.SubscriptionFormView{"reactivate subscription", "/api/subscriptions/reactivate/"},
-    }).RenderView).Methods("GET")
+      true,
+    }).ServeView).Methods("GET")
 
     //r.HandleFunc("/validate", validateView).Methods("POST")
 
@@ -53,42 +60,49 @@ func main() {
     //r.HandleFunc("/api/subscriptions/reactivate/{subscription_id}", reactivateSubscriptionHandler).Methods("GET")
 
     http.Handle("/", r)
-
     appengine.Main()
+}
+
+func sendEmailForSubscription(subscription_id string, ctx context.Context) error {
+  sub, err := GetSubscription(subscription_id)
+  if err != nil {
+    return err
+  }
+
+  bookMeta, err := GetBook(sub.BookId)
+  if err != nil {
+    return err
+  }
+
+  body, err := books.GetChapter(sub.BookId, sub.ChaptersSent + 1, ctx)
+  if err != nil {
+    return err
+  }
+
+  content := strings.Replace(body, "\n", "<br/>", -1)
+  emailBody, err := (&views.TplRenderer{
+    "email",
+    views.EmailView{bookMeta.Title, bookMeta.Author, sub.ChaptersSent + 1, content},
+    false,
+  }).GetView()
+  if err != nil {
+    return err
+  }
+
+  if err = SendMail(sub.Email, bookMeta.Title, emailBody, ctx); err != nil {
+    return err
+  }
+
+  return IncrementChaptersSent(sub.SubscriptionId)
 }
 
 func cronHandler(w http.ResponseWriter, r *http.Request) {
   ctx := appengine.NewContext(r)
   vars := mux.Vars(r)
 
-  sub, err := GetSubscription(vars["subscription_id"])
+  err := sendEmailForSubscription(vars["subscription_id"], ctx)
   if err != nil {
     logAndPrintError(w, err)
-    return
-  }
-
-  bookMeta, err := GetBook(sub.BookId)
-  if err != nil {
-    logAndPrintError(w, err)
-    return
-  }
-
-  body, err := books.GetChapter(sub.BookId, sub.ChaptersSent + 1, ctx)
-  if err != nil {
-    logAndPrintError(w, err)
-    return
-  }
-
-  err = SendMail(sub.Email, bookMeta.Title, body, ctx)
-  if err != nil {
-    logAndPrintError(w, err)
-    return
-  }
-
-  err = IncrementChaptersSent(sub.SubscriptionId)
-  if err != nil {
-    logAndPrintError(w, err)
-    return
   }
 
   fmt.Fprintln(w, "Sent mail")

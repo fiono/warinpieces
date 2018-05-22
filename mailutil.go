@@ -12,7 +12,7 @@ import (
   "gopkg.in/sendgrid/sendgrid-go.v2"
 )
 
-func SendMail(to string, subject string, body string, ctx context.Context) error {
+func SendMail(to, subject, body string, ctx context.Context) error {
   cfg := config.LoadConfig()
 
   sg := sendgrid.NewSendGridClientWithApiKey(cfg.Email.SendgridApiKey)
