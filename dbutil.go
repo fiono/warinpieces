@@ -24,6 +24,39 @@ func dbConn() (db *sql.DB, err error) {
   Book utils
 */
 
+func GetBooks() (b []books.BookMeta, err error) {
+  db, err := dbConn()
+  if err != nil {
+    return
+  }
+  defer db.Close()
+
+  rows, err := db.Query(
+    "SELECT book_id, title, author, chapter_count, chapter_delim, publishing_schedule_type FROM books",
+  )
+  if err != nil {
+    return
+  }
+  defer rows.Close()
+
+  for rows.Next() {
+    var bookId, title, author, chapterDelim string
+    var chapters, scheduleType int
+
+    if err = rows.Scan(&bookId, &title, &author, &chapters, &chapterDelim, &scheduleType); err != nil {
+      return
+    }
+    b = append(
+      b,
+      books.BookMeta{bookId, title, author, chapters, chapterDelim, scheduleType},
+    )
+  }
+  if err = rows.Err(); err != nil {
+    return
+  }
+  return b, nil
+}
+
 func GetBook(bookId string) (book books.BookMeta, err error) {
   db, err := dbConn()
   if err != nil {

@@ -1,20 +1,24 @@
 {{template "header"}}
 
-<div class="container-fluid">
-  <h1 class="m-2">{{ .Title }}</h1>
+<div class="container-fluid" id="subscription_form">
+  <h1>{{ .Title }}</h1>
 
   <form action="{{ .Endpoint }}" method="post">
-    <div class="m-2">
-      book id:<br>
-      <input type="text" name="bookId">
-    </div>
-
-    <div class="m-2">
+    <div class="form-group">
       email address:<br>
-      <input type="text" name="email">
+      <input type="text" name="email" class="form-control">
     </div>
 
-    <input type="submit" value="submit" class="m-2">
+    <div class="form-group">
+      book:<br>
+      <select name="bookId" class="form-control">
+        {{ range .Options }}
+          <option value="{{ .BookId }}">{{ .Title }} ({{ .Author }})</option>
+        {{ end }}
+      </select>
+    </div>
+
+    <input type="submit" value="submit" class="btn btn-default">
   </form>
 </div>
 

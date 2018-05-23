@@ -38,23 +38,19 @@ func main() {
   */
   r.HandleFunc("/books/", (&views.TplRenderer{Tpl: "book", IsWeb: true}).ServeView).Methods("GET")
 
-  r.HandleFunc("/", (&views.TplRenderer{
-    "subscription_form",
-    views.SubscriptionFormView{"new subscription", "/api/subscriptions/new/"},
-    true,
-  }).ServeView).Methods("GET")
+  r.HandleFunc("/", newSubscriptionView).Methods("GET")
 
-  r.HandleFunc("/deactivate/", (&views.TplRenderer{
-    "subscription_form",
-    views.SubscriptionFormView{"pause subscription", "/api/subscriptions/deactivate/"},
-    true,
-  }).ServeView).Methods("GET")
+  //r.HandleFunc("/deactivate/", (&views.TplRenderer{
+  //  "subscription_form",
+  //  views.SubscriptionFormView{"pause subscription", "/api/subscriptions/deactivate/", opts},
+  //  true,
+  //}).ServeView).Methods("GET")
 
-  r.HandleFunc("/reactivate/", (&views.TplRenderer{
-    "subscription_form",
-    views.SubscriptionFormView{"reactivate subscription", "/api/subscriptions/reactivate/"},
-    true,
-  }).ServeView).Methods("GET")
+  //r.HandleFunc("/reactivate/", (&views.TplRenderer{
+  //  "subscription_form",
+  //  views.SubscriptionFormView{"reactivate subscription", "/api/subscriptions/reactivate/", opts},
+  //  true,
+  //}).ServeView).Methods("GET")
 
   //r.HandleFunc("/validate", validateView).Methods("POST")
 
@@ -69,6 +65,24 @@ func main() {
 
   http.Handle("/", r)
   appengine.Main()
+}
+
+func newSubscriptionView(w http.ResponseWriter, r *http.Request) {
+  validBooks, err := GetBooks()
+  if err != nil {
+    reportError(err)
+  }
+
+  var opts []views.BookOption
+  for _, book := range validBooks {
+    opts = append(opts, views.BookOption{book.BookId, book.Title, book.Author})
+  }
+
+  (&views.TplRenderer{
+    "subscription_form",
+    views.SubscriptionFormView{"new subscription", "/api/subscriptions/new/", opts},
+    true,
+  }).ServeView(w, r)
 }
 
 func sendEmailForSubscription(subscriptionId string, ctx context.Context, ch chan sendEmailResponse) {
