@@ -18,8 +18,10 @@ import (
 func main() {
   r := mux.NewRouter()
 
-  // BIGF: temp testing endpoint
-  r.HandleFunc("/send/{subscription_id}/", cronHandler)
+  /*
+    Nightly cron endpoint
+  */
+  r.HandleFunc("/send/", cronHandler)
 
   /*
    Serve static assets
@@ -64,8 +66,8 @@ func main() {
   appengine.Main()
 }
 
-func sendEmailForSubscription(subscription_id string, ctx context.Context) error {
-  sub, err := GetSubscription(subscription_id)
+func sendEmailForSubscription(subscriptionId string, ctx context.Context) error {
+  sub, err := GetSubscription(subscriptionId)
   if err != nil {
     return err
   }
@@ -99,14 +101,24 @@ func sendEmailForSubscription(subscription_id string, ctx context.Context) error
 
 func cronHandler(w http.ResponseWriter, r *http.Request) {
   ctx := appengine.NewContext(r)
-  vars := mux.Vars(r)
 
-  err := sendEmailForSubscription(vars["subscription_id"], ctx)
+  //ch := make(chan string)
+  //ec := make(chan int)
+  subs, err := GetActiveSubscriptions()
   if err != nil {
-    reportError(w, err)
+    reportError(err)
+  }
+  for _, sub := range subs {
+    err := sendEmailForSubscription(sub.SubscriptionId, ctx)
+    if err != nil {
+      reportError(err)
+      NewEmailAudit(sub.SubscriptionId, 0, false)
+    } else {
+      NewEmailAudit(sub.SubscriptionId, 0, true)
+    }
   }
 
-  fmt.Fprintln(w, "Sent mail")
+  fmt.Fprintln(w, "Done")
 }
 
 func newBookHandler(w http.ResponseWriter, r *http.Request) {
@@ -118,13 +130,13 @@ func newBookHandler(w http.ResponseWriter, r *http.Request) {
   ctx := appengine.NewContext(r)
   meta, err := books.ChapterizeBook(bookId, delimiter, ctx)
   if err != nil {
-    reportError(w, err)
+    reportError(err)
     return
   }
 
   _, err = NewBook(meta)
   if err != nil {
-    reportError(w, err)
+    reportError(err)
     return
   }
 
@@ -139,7 +151,7 @@ func newSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
 
   _, err := NewSubscription(bookId, emailAddr)
   if err != nil {
-    reportError(w, err)
+    reportError(err)
     return
   }
 
@@ -156,7 +168,7 @@ func getErrorReportingClient(projectId string) (client *errorreporting.Client, e
   })
 }
 
-func reportError(w http.ResponseWriter, err error) {
+func reportError(err error) {
   errorClient, e := getErrorReportingClient("gutenbits")
   if e != nil {
     panic(e)
