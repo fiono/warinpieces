@@ -36,7 +36,7 @@ func main() {
   /*
    Views
   */
-  r.HandleFunc("/books/", (&views.TplRenderer{Tpl: "book"}).ServeView).Methods("GET")
+  r.HandleFunc("/books/", (&views.TplRenderer{Tpl: "book", IsWeb: true}).ServeView).Methods("GET")
 
   r.HandleFunc("/", (&views.TplRenderer{
     "subscription_form",
@@ -196,4 +196,5 @@ func reportError(err error) {
   errorClient.Report(errorreporting.Entry{
     Error: err,
   })
+  panic(err)
 }

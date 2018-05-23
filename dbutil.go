@@ -2,20 +2,21 @@ package main
 
 import (
   "database/sql"
+  "fmt"
 
   "books"
   "config"
 
   "google.golang.org/appengine"
-  _ "github.com/lib/pq"
+  _ "github.com/go-sql-driver/mysql"
 )
 
 func dbConn() (db *sql.DB, err error) {
   cfg := config.LoadConfig()
   if appengine.IsDevAppServer() {
-    return sql.Open("postgres", cfg.Db.ConnectionStrDev)
+    return sql.Open("mysql", fmt.Sprintf("%s:%s@/%s", cfg.Db.User, cfg.Db.Password, cfg.Db.DbName))
   } else {
-    return sql.Open("postgres", cfg.Db.ConnectionStr)
+    return sql.Open("mysql", fmt.Sprintf("%s:%s@cloudsql(%s)/%s", cfg.Db.User, cfg.Db.Password, cfg.Db.ConnectionName, cfg.Db.DbName))
   }
 }
 
@@ -34,14 +35,14 @@ func GetBook(bookId string) (book books.BookMeta, err error) {
   var chapters int
 
   err = db.QueryRow(
-    "SELECT title, author, chapter_count, chapter_delim FROM books WHERE book_id = $1",
+    "SELECT title, author, chapter_count, chapter_delim FROM books WHERE book_id = ?",
     bookId,
   ).Scan(&title, &author, &chapters, &chapterDelim)
   if err != nil {
     return
   }
 
-  return books.BookMeta{bookId, title, author, chapters, chapterDelim}, nil
+  return books.BookMeta{bookId, title, author, chapters, chapterDelim, 0}, nil // BIGF
 }
 
 func NewBook(bookMeta books.BookMeta) (res sql.Result, err error) {
@@ -52,12 +53,13 @@ func NewBook(bookMeta books.BookMeta) (res sql.Result, err error) {
   defer db.Close()
 
   return db.Exec(
-    "INSERT INTO books (book_id, title, author, chapter_count, chapter_delim) VALUES ($1, $2, $3, $4, $5)",
+    "INSERT INTO books (book_id, title, author, chapter_count, chapter_delim, publishing_schedule_type) VALUES (?, ?, ?, ?, ?, ?)",
     bookMeta.BookId,
     bookMeta.Title,
     bookMeta.Author,
     bookMeta.Chapters,
     bookMeta.Delimiter,
+    bookMeta.ScheduleType,
   )
 }
 
@@ -73,7 +75,7 @@ func NewSubscription(bookId, emailAddr string) (res sql.Result, err error) {
   defer db.Close()
 
   return db.Exec(
-    "INSERT INTO subscriptions (subscription_id, book_id, email_address, create_datetime) VALUES (DEFAULT, $1, $2, NOW())",
+    "INSERT INTO subscriptions (subscription_id, book_id, email_address, create_datetime) VALUES (DEFAULT, ?, ?, NOW())",
     bookId,
     emailAddr,
   )
@@ -91,7 +93,7 @@ func GetSubscription(subscriptionId string) (sub books.SubscriptionMeta, err err
   var isActive, isValidated bool
 
   err = db.QueryRow(
-    "SELECT book_id, email_address, chapters_sent, is_active, is_validated FROM subscriptions WHERE subscription_id = $1",
+    "SELECT book_id, email_address, chapters_sent, is_active, is_validated FROM subscriptions WHERE subscription_id = ?",
     subscriptionId,
   ).Scan(&bookId, &emailAddress, &chaptersSent, &isActive, &isValidated)
   if err != nil {
@@ -144,7 +146,7 @@ func IncrementChaptersSent(subscriptionId string) error {
   defer db.Close()
 
   _, err = db.Exec(
-    "UPDATE subscriptions SET chapters_sent = chapters_sent + 1 WHERE subscription_id = $1",
+    "UPDATE subscriptions SET chapters_sent = chapters_sent + 1 WHERE subscription_id = ?",
     subscriptionId,
   )
   return err
@@ -162,7 +164,7 @@ func NewEmailAudit(subscriptionId string, emailLen int, success bool) (res sql.R
   defer db.Close()
 
   return db.Exec(
-    "INSERT INTO email_audit (subscription_id, email_len, send_datetime, is_success) VALUES ($1, $2, NOW(), $3)",
+    "INSERT INTO email_audit (subscription_id, email_len, send_datetime, is_success) VALUES (?, ?, NOW(), ?)",
     subscriptionId,
     emailLen,
     success,

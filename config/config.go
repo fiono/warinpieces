@@ -24,8 +24,10 @@ type storageConfig struct {
 }
 
 type dbConfig struct {
-  ConnectionStrDev string `toml:"connection_str_dev"`
-  ConnectionStr string `toml:"connection_str"`
+  User string `toml:"user"`
+  Password string `toml:"password"`
+  ConnectionName string `toml:"connection_name"`
+  DbName string `toml:"db_name"`
 }
 
 func LoadConfig() GutenConfig {

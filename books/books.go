@@ -21,6 +21,7 @@ type BookMeta struct {
   Author string
   Chapters int
   Delimiter string
+  ScheduleType int
 }
 
 type SubscriptionMeta struct {
@@ -33,7 +34,7 @@ type SubscriptionMeta struct {
 }
 
 // this is gnarly and i should be using the metadata
-var bookEnd = regexp.MustCompile("^\\*\\*\\* END OF THIS PROJECT GUTENBERG .+ \\*\\*\\*$")
+var bookEnd = regexp.MustCompile("^\\*\\*\\* ?END .+\\*\\*\\*$")
 var authorPatt = regexp.MustCompile("^Author: (.*)$")
 var titlePatt = regexp.MustCompile("^Title: (.*)$")
 
@@ -75,7 +76,7 @@ func GetChapter(bookId string, chapter int, ctx context.Context) (body string, e
 }
 
 func ChapterizeBook(bookId string, delimiter string, ctx context.Context) (meta BookMeta, err error) {
-  chapterPatt := regexp.MustCompile(fmt.Sprintf("^%s \\w+$", delimiter))
+  chapterPatt := regexp.MustCompile(fmt.Sprintf("^%s .+$", delimiter))
 
   var author, title string
   var chapterInd = 0
@@ -99,7 +100,7 @@ func ChapterizeBook(bookId string, delimiter string, ctx context.Context) (meta 
   for scanner.Scan() {
     line := scanner.Text()
     if bookEnd.MatchString(line) {
-      return BookMeta{bookId, title, author, chapterInd, delimiter}, nil
+      return BookMeta{bookId, title, author, chapterInd, delimiter, 0}, nil // BIGF
     } else if authorPatt.MatchString(line) && author == "" {
       author = authorPatt.FindStringSubmatch(line)[1]
     } else if titlePatt.MatchString(line) && title == "" {
