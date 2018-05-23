@@ -19,6 +19,31 @@ func dbConn() (db *sql.DB, err error) {
   }
 }
 
+/*
+  Book utils
+*/
+
+func GetBook(bookId string) (book books.BookMeta, err error) {
+  db, err := dbConn()
+  if err != nil {
+    return
+  }
+  defer db.Close()
+
+  var title, author, chapterDelim string
+  var chapters int
+
+  err = db.QueryRow(
+    "SELECT title, author, chapter_count, chapter_delim FROM books WHERE book_id = $1",
+    bookId,
+  ).Scan(&title, &author, &chapters, &chapterDelim)
+  if err != nil {
+    return
+  }
+
+  return books.BookMeta{bookId, title, author, chapters, chapterDelim}, nil
+}
+
 func NewBook(bookMeta books.BookMeta) (res sql.Result, err error) {
   db, err := dbConn()
   if err != nil {
@@ -36,20 +61,9 @@ func NewBook(bookMeta books.BookMeta) (res sql.Result, err error) {
   )
 }
 
-func NewEmailAudit(subscriptionId string, emailLen int, success bool) (res sql.Result, err error) {
-  db, err := dbConn()
-  if err != nil {
-    return
-  }
-  defer db.Close()
-
-  return db.Exec(
-    "INSERT INTO email_audit (subscription_id, email_len, send_datetime, is_success) VALUES ($1, $2, NOW(), $3)",
-    subscriptionId,
-    emailLen,
-    success,
-  )
-}
+/*
+  Subscription utils
+*/
 
 func NewSubscription(bookId, emailAddr string) (res sql.Result, err error) {
   db, err := dbConn()
@@ -65,50 +79,64 @@ func NewSubscription(bookId, emailAddr string) (res sql.Result, err error) {
   )
 }
 
-func GetBook(book_id string) (book books.BookMeta, err error) {
+func GetSubscription(subscriptionId string) (sub books.SubscriptionMeta, err error) {
   db, err := dbConn()
   if err != nil {
     return
   }
   defer db.Close()
 
-  var title, author, chapter_delim string
-  var chapters int
-
-  err = db.QueryRow(
-    "SELECT title, author, chapter_count, chapter_delim FROM books WHERE book_id = $1",
-    book_id,
-  ).Scan(&title, &author, &chapters, &chapter_delim)
-  if err != nil {
-    return
-  }
-
-  return books.BookMeta{book_id, title, author, chapters, chapter_delim}, nil
-}
-
-func GetSubscription(subscription_id string) (sub books.SubscriptionMeta, err error) {
-  db, err := dbConn()
-  if err != nil {
-    return
-  }
-  defer db.Close()
-
-  var book_id, email_address string
-  var chapters_sent int
-  var is_active, is_validated bool
+  var bookId, emailAddress string
+  var chaptersSent int
+  var isActive, isValidated bool
 
   err = db.QueryRow(
     "SELECT book_id, email_address, chapters_sent, is_active, is_validated FROM subscriptions WHERE subscription_id = $1",
-    subscription_id,
-  ).Scan(&book_id, &email_address, &chapters_sent, &is_active, &is_validated)
+    subscriptionId,
+  ).Scan(&bookId, &emailAddress, &chaptersSent, &isActive, &isValidated)
   if err != nil {
     return
   }
 
-  return books.SubscriptionMeta{subscription_id, book_id, email_address, chapters_sent, is_active, is_validated}, nil
+  return books.SubscriptionMeta{subscriptionId, bookId, emailAddress, chaptersSent, isActive, isValidated}, nil
 }
 
-func IncrementChaptersSent(subscription_id string) error {
+func GetActiveSubscriptions() (subs []books.SubscriptionMeta, err error) {
+  db, err := dbConn()
+  if err != nil {
+    return
+  }
+  defer db.Close()
+
+  rows, err := db.Query(
+    "SELECT subscription_id, book_id, email_address, chapters_sent, is_active, is_validated FROM subscriptions WHERE is_active=true",
+  )
+  if err != nil {
+    return
+  }
+  defer rows.Close()
+
+  for rows.Next() {
+    var subscriptionId, bookId, emailAddress string
+    var chaptersSent int
+    var isActive, isValidated bool
+
+    if err = rows.Scan(&subscriptionId, &bookId, &emailAddress, &chaptersSent, &isActive, &isValidated); err != nil {
+      return
+    }
+
+    subs = append(
+      subs,
+      books.SubscriptionMeta{subscriptionId, bookId, emailAddress, chaptersSent, isActive, isValidated},
+    )
+  }
+  if err = rows.Err(); err != nil {
+    return
+  }
+  return subs, nil
+}
+
+func IncrementChaptersSent(subscriptionId string) error {
   db, err := dbConn()
   if err != nil {
     return err
@@ -117,7 +145,27 @@ func IncrementChaptersSent(subscription_id string) error {
 
   _, err = db.Exec(
     "UPDATE subscriptions SET chapters_sent = chapters_sent + 1 WHERE subscription_id = $1",
-    subscription_id,
+    subscriptionId,
   )
   return err
 }
+
+/*
+  Email audit utils
+*/
+
+func NewEmailAudit(subscriptionId string, emailLen int, success bool) (res sql.Result, err error) {
+  db, err := dbConn()
+  if err != nil {
+    return
+  }
+  defer db.Close()
+
+  return db.Exec(
+    "INSERT INTO email_audit (subscription_id, email_len, send_datetime, is_success) VALUES ($1, $2, NOW(), $3)",
+    subscriptionId,
+    emailLen,
+    success,
+  )
+}
+
