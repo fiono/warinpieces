@@ -24,6 +24,7 @@ type storageConfig struct {
 }
 
 type dbConfig struct {
+  ConnectionStrDev string `toml:"connection_str_dev"`
   ConnectionStr string `toml:"connection_str"`
 }
 

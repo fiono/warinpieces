@@ -6,12 +6,17 @@ import (
   "books"
   "config"
 
+  "google.golang.org/appengine"
   _ "github.com/lib/pq"
 )
 
 func dbConn() (db *sql.DB, err error) {
   cfg := config.LoadConfig()
-  return sql.Open("postgres", cfg.Db.ConnectionStr)
+  if appengine.IsDevAppServer() {
+    return sql.Open("postgres", cfg.Db.ConnectionStrDev)
+  } else {
+    return sql.Open("postgres", cfg.Db.ConnectionStr)
+  }
 }
 
 func NewBook(bookMeta books.BookMeta) (res sql.Result, err error) {
