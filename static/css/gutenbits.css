@@ -1,5 +1,11 @@
-#subscription_form {
-  margin-right: auto;
-  margin-left: auto;
+body {
+  font-family: 'Lora';
+  background-image: url("/static/img/books.jpg");
+}
+
+#gutenform {
+  padding: 20px;
+  background-color: white;
+  margin: 10% auto auto;
   max-width: 700px;
 }

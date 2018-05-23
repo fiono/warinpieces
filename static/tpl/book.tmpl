@@ -1,27 +1,30 @@
 {{template "header"}}
 
-<div class="container-fluid">
-  <h1 class="m-2">new book</h1>
+<div class="container-fluid" id="gutenform">
+  <h1>new book</h1>
 
   <form action="/api/books/new/" method="post">
-
-    <div class="m-2">
+    <div class="form-group">
       Book ID:<br>
-      <input type="text" name="bookId">
+      <input type="text" name="bookId" class="form-control">
     </div>
 
-    <div class="m-2">
+    <div class="form-group">
       Delimiter:<br>
-      <input type="text" name="delim">
+      <input type="text" name="delim" class="form-control" placeholder="Chapter">
     </div>
 
-    <div class="m-2">
+    <div class="form-group">
       Publishing Schedule:<br>
-      <input type="radio" name="sched" value="weekly" checked>Weekly<br>
-      <input type="radio" name="sched" value="monthly">Monthly<br>
+      <div class="radio">
+        <input type="radio" name="sched" value="weekly" checked> Weekly</input><br />
+      </div>
+      <div class="radio">
+        <input type="radio" name="sched" value="monthly"> Monthly</input>
+      </div>
     </div>
 
-    <input type="submit" value="submit" class="m-2">
+    <input type="submit" value="submit" class="btn btn-default">
 
   </form>
 </div>

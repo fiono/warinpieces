@@ -1,16 +1,16 @@
 {{template "header"}}
 
-<div class="container-fluid" id="subscription_form">
+<div class="container-fluid" id="gutenform">
   <h1>{{ .Title }}</h1>
 
   <form action="{{ .Endpoint }}" method="post">
     <div class="form-group">
-      email address:<br>
+      <label>email address:</label>
       <input type="text" name="email" class="form-control">
     </div>
 
     <div class="form-group">
-      book:<br>
+      <label>book:</label>
       <select name="bookId" class="form-control">
         {{ range .Options }}
           <option value="{{ .BookId }}">{{ .Title }} ({{ .Author }})</option>
