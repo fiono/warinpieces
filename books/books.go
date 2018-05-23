@@ -82,10 +82,10 @@ func ChapterizeBook(bookId string, delimiter string, ctx context.Context) (meta 
 
   path := fmt.Sprintf("test_data/%s.txt", bookId)
 	inFile, err := os.Open(path)
-  defer inFile.Close()
   if err != nil {
     return
   }
+  defer inFile.Close()
 
   scanner := bufio.NewScanner(inFile)
 

@@ -21,10 +21,10 @@ func dbConn() (db *sql.DB, err error) {
 
 func NewBook(bookMeta books.BookMeta) (res sql.Result, err error) {
   db, err := dbConn()
-  defer db.Close()
   if err != nil {
     return
   }
+  defer db.Close()
 
   return db.Exec(
     "INSERT INTO books (book_id, title, author, chapter_count, chapter_delim) VALUES ($1, $2, $3, $4, $5)",
@@ -38,10 +38,10 @@ func NewBook(bookMeta books.BookMeta) (res sql.Result, err error) {
 
 func NewEmailAudit(subscriptionId string, emailLen int, success bool) (res sql.Result, err error) {
   db, err := dbConn()
-  defer db.Close()
   if err != nil {
     return
   }
+  defer db.Close()
 
   return db.Exec(
     "INSERT INTO email_audit (subscription_id, email_len, send_datetime, is_success) VALUES ($1, $2, NOW(), $3)",
@@ -53,25 +53,24 @@ func NewEmailAudit(subscriptionId string, emailLen int, success bool) (res sql.R
 
 func NewSubscription(bookId, emailAddr string) (res sql.Result, err error) {
   db, err := dbConn()
-  defer db.Close()
   if err != nil {
-    return nil, err
+    return
   }
+  defer db.Close()
 
-  res, err = db.Exec(
+  return db.Exec(
     "INSERT INTO subscriptions (subscription_id, book_id, email_address, create_datetime) VALUES (DEFAULT, $1, $2, NOW())",
     bookId,
     emailAddr,
   )
-  return
 }
 
 func GetBook(book_id string) (book books.BookMeta, err error) {
   db, err := dbConn()
-  defer db.Close()
   if err != nil {
     return
   }
+  defer db.Close()
 
   var title, author, chapter_delim string
   var chapters int
@@ -89,10 +88,10 @@ func GetBook(book_id string) (book books.BookMeta, err error) {
 
 func GetSubscription(subscription_id string) (sub books.SubscriptionMeta, err error) {
   db, err := dbConn()
-  defer db.Close()
   if err != nil {
     return
   }
+  defer db.Close()
 
   var book_id, email_address string
   var chapters_sent int
@@ -111,10 +110,10 @@ func GetSubscription(subscription_id string) (sub books.SubscriptionMeta, err er
 
 func IncrementChaptersSent(subscription_id string) error {
   db, err := dbConn()
-  defer db.Close()
   if err != nil {
     return err
   }
+  defer db.Close()
 
   _, err = db.Exec(
     "UPDATE subscriptions SET chapters_sent = chapters_sent + 1 WHERE subscription_id = $1",
