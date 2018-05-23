@@ -1,11 +1,11 @@
 runtime: go
-api_version: go1
+env: flex
 
 env_variables:
   GOOGLE_APPLICATION_CREDENTIALS: "cfg/Gutenbits-creds.json"
 
 handlers:
-- url: /send
+- url: /send/*
   script: _go_app
   login: admin
 
