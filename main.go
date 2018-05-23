@@ -15,6 +15,11 @@ import (
   "google.golang.org/appengine"
 )
 
+type sendEmailResponse struct {
+  subId string
+  err error
+}
+
 func main() {
   r := mux.NewRouter()
 
@@ -66,20 +71,25 @@ func main() {
   appengine.Main()
 }
 
-func sendEmailForSubscription(subscriptionId string, ctx context.Context) error {
+func sendEmailForSubscription(subscriptionId string, ctx context.Context, ch chan sendEmailResponse) {
+  var err error
+  defer func() {
+    ch <- sendEmailResponse{subscriptionId, err}
+  }()
+
   sub, err := GetSubscription(subscriptionId)
   if err != nil {
-    return err
+    return
   }
 
   bookMeta, err := GetBook(sub.BookId)
   if err != nil {
-    return err
+    return
   }
 
   body, err := books.GetChapter(sub.BookId, sub.ChaptersSent + 1, ctx)
   if err != nil {
-    return err
+    return
   }
 
   content := strings.Replace(body, "\n", "<br/>", -1)
@@ -89,36 +99,42 @@ func sendEmailForSubscription(subscriptionId string, ctx context.Context) error 
     false,
   }).GetView()
   if err != nil {
-    return err
+    return
   }
 
   if err = SendMail(sub.Email, bookMeta.Title, emailBody, ctx); err != nil {
-    return err
+    return
   }
 
-  return IncrementChaptersSent(sub.SubscriptionId)
+  if err = IncrementChaptersSent(sub.SubscriptionId); err != nil {
+    return
+  }
 }
 
 func cronHandler(w http.ResponseWriter, r *http.Request) {
   ctx := appengine.NewContext(r)
 
-  //ch := make(chan string)
-  //ec := make(chan int)
   subs, err := GetActiveSubscriptions()
   if err != nil {
     reportError(err)
   }
+
+  ch := make(chan sendEmailResponse)
   for _, sub := range subs {
-    err := sendEmailForSubscription(sub.SubscriptionId, ctx)
-    if err != nil {
-      reportError(err)
-      NewEmailAudit(sub.SubscriptionId, 0, false)
-    } else {
-      NewEmailAudit(sub.SubscriptionId, 0, true)
+    go sendEmailForSubscription(sub.SubscriptionId, ctx, ch)
+  }
+
+  successes := 0
+  tries := 0
+  for ; tries < len(subs); tries++ {
+    resp := <-ch
+    NewEmailAudit(resp.subId, 0, resp.err != nil)
+    if resp.err == nil {
+      successes++
     }
   }
 
-  fmt.Fprintln(w, "Done")
+  fmt.Fprintf(w, "Done, %d successes out of %d tries", successes, tries)
 }
 
 func newBookHandler(w http.ResponseWriter, r *http.Request) {
