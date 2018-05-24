@@ -45,7 +45,13 @@ func main() {
   Views
 */
 func newSubscriptionView(w http.ResponseWriter, r *http.Request) {
-  validBooks, err := GetBooks()
+  db, err := dbConn()
+  if err != nil {
+    reportError(err)
+  }
+  defer db.Close()
+
+  validBooks, err := db.GetBooks()
   if err != nil {
     reportError(err)
   }
@@ -64,9 +70,15 @@ type sendEmailResponse struct {
 }
 
 func cronHandler(w http.ResponseWriter, r *http.Request) {
+  db, err := dbConn()
+  if err != nil {
+    reportError(err)
+  }
+  defer db.Close()
+
   ctx := appengine.NewContext(r)
 
-  subs, err := GetSubscriptionsForSending()
+  subs, err := db.GetSubscriptionsForSending()
   if err != nil {
     reportError(err)
   }
@@ -80,9 +92,11 @@ func cronHandler(w http.ResponseWriter, r *http.Request) {
   tries := 0
   for ; tries < len(subs); tries++ {
     resp := <-ch
-    NewEmailAudit(resp.subId, 0, resp.err != nil)
     if resp.err == nil {
       successes++
+    }
+    if err = db.NewEmailAudit(resp.subId, 0, resp.err != nil); err != nil {
+      reportError(err)
     }
   }
 
@@ -90,17 +104,22 @@ func cronHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func sendEmailForSubscription(subscriptionId string, ctx context.Context, ch chan sendEmailResponse) {
-  var err error
+  db, err := dbConn()
+  if err != nil {
+    reportError(err)
+  }
+  defer db.Close()
+
   defer func() {
     ch <- sendEmailResponse{subscriptionId, err}
   }()
 
-  sub, err := GetSubscription(subscriptionId)
+  sub, err := db.GetSubscription(subscriptionId)
   if err != nil {
     return
   }
 
-  bookMeta, err := GetBook(sub.BookId)
+  bookMeta, err := db.GetBook(sub.BookId)
   if err != nil {
     return
   }
@@ -120,7 +139,7 @@ func sendEmailForSubscription(subscriptionId string, ctx context.Context, ch cha
     return
   }
 
-  if err = IncrementChaptersSent(sub.SubscriptionId); err != nil {
+  if err = db.IncrementChaptersSent(sub.SubscriptionId); err != nil {
     return
   }
 }
@@ -129,6 +148,12 @@ func sendEmailForSubscription(subscriptionId string, ctx context.Context, ch cha
   Endpoints
 */
 func newBookHandler(w http.ResponseWriter, r *http.Request) {
+  db, err := dbConn()
+  if err != nil {
+    reportError(err)
+  }
+  defer db.Close()
+
   r.ParseForm()
 
   bookId := r.Form["bookId"][0]
@@ -141,7 +166,7 @@ func newBookHandler(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  _, err = NewBook(books.BookMeta{
+  err = db.NewBook(books.BookMeta{
     bookId,
     meta.Title,
     meta.Author,
@@ -158,13 +183,18 @@ func newBookHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func newSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
+  db, err := dbConn()
+  if err != nil {
+    reportError(err)
+  }
+  defer db.Close()
+
   r.ParseForm()
 
   bookId := r.Form["bookId"][0]
   emailAddr := r.Form["email"][0]
 
-  _, err := NewSubscription(bookId, emailAddr)
-  if err != nil {
+  if err := db.NewSubscription(bookId, emailAddr); err != nil {
     reportError(err)
     return
   }
