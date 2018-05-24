@@ -1,0 +1,14 @@
+{{template "header"}}
+
+<div class="container-fluid" id="content_blob">
+  <h1>Success!</h1>
+
+  <p>
+    You've unsubscribed {{ .EmailAddress }} from weekly emails of <i>{{ .Book.Title }}</i>.
+    If you have any other active subscriptions you'd like to terminate, click
+    <a href="http://gutenbits.appspot.com/unsubscribe_all/{{ .EmailAddress }}/">here</a> to deactivate all your subscriptions at once.
+  </p>
+  
+</div>
+
+{{template "footer"}}

@@ -159,6 +159,26 @@ func (db *DbConn) IncrementChaptersSent(subscriptionId string) error {
   return err
 }
 
+func (db *DbConn) UnsubscribeSingle(subscriptionId string) (sub books.SubscriptionMeta, err error) {
+  _, err = db.Conn.Exec(
+    "UPDATE subscriptions SET is_active = 0 WHERE subscription_id = ?",
+    subscriptionId,
+  )
+  if err != nil {
+    return
+  }
+
+  return db.GetSubscription(subscriptionId)
+}
+
+func (db *DbConn) UnsubscribeEmail(emailAddress string) error {
+  _, err := db.Conn.Exec(
+    "UPDATE subscriptions SET is_active = 0 WHERE email_address = ?",
+    emailAddress,
+  )
+  return err
+}
+
 /*
   Email audit utils
 */

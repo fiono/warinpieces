@@ -24,40 +24,19 @@ func main() {
   // Serve static assets
   r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
-  // Views
-  r.HandleFunc("/books/", (&views.TplRenderer{Tpl: "book", IsWeb: true}).ServeView).Methods("GET")
   r.HandleFunc("/", newSubscriptionView).Methods("GET")
-  //r.HandleFunc("/validate", validateView).Methods("POST")
-  //r.HandleFunc("/unsubscribe", unsubscribeView).Methods("POST")
+  r.HandleFunc("/books/", (&views.TplRenderer{Tpl: "book", IsWeb: true}).ServeView).Methods("GET")
 
-  // Endpoints
-  r.HandleFunc("/api/books/new/", newBookHandler).Methods("POST")
-  r.HandleFunc("/api/subscriptions/new/", newSubscriptionHandler).Methods("POST")
+  r.HandleFunc("/books/new/", newBookHandler).Methods("POST")
+  r.HandleFunc("/subscriptions/new/", newSubscriptionHandler).Methods("POST")
+  r.HandleFunc("/unsubscribe/{subscription_id}/", singleUnsubscribeHandler).Methods("GET") // BIGF: add token
+  r.HandleFunc("/unsubscribe_all/{email_address}/", emailUnsubscribeHandler).Methods("GET") // BIGF: add token
   //r.HandleFunc("/api/subscriptions/reactivate/{subscription_id}", reactivateSubscriptionHandler).Methods("GET")
   //r.HandleFunc("/api/subscriptions/validate/{subscription_id}", validateSubscriptionHandler).Methods("GET")
 
   http.Handle("/", r)
   appengine.Main()
 }
-
-/*
-  Views
-*/
-func newSubscriptionView(w http.ResponseWriter, r *http.Request) {
-  db, err := dbConn()
-  if err != nil {
-    reportError(err)
-  }
-  defer db.Close()
-
-  validBooks, err := db.GetBooks()
-  if err != nil {
-    reportError(err)
-  }
-
-  views.NewSubscriptionRenderer(validBooks).ServeView(w, r)
-}
-
 
 /*
   Cron logic
@@ -72,12 +51,14 @@ func cronHandler(w http.ResponseWriter, r *http.Request) {
   db, err := dbConn()
   if err != nil {
     reportError(err)
+    return
   }
   defer db.Close()
 
   subs, err := db.GetSubscriptionsForSending()
   if err != nil {
     reportError(err)
+    return
   }
 
   ctx := appengine.NewContext(r)
@@ -105,6 +86,7 @@ func sendEmailForSubscription(subscriptionId string, ctx context.Context, ch cha
   db, err := dbConn()
   if err != nil {
     reportError(err)
+    return
   }
   defer db.Close()
 
@@ -145,15 +127,33 @@ func sendEmailForSubscription(subscriptionId string, ctx context.Context, ch cha
 /*
   Endpoints
 */
+func newSubscriptionView(w http.ResponseWriter, r *http.Request) {
+  db, err := dbConn()
+  if err != nil {
+    reportError(err)
+    return
+  }
+  defer db.Close()
+
+  validBooks, err := db.GetBooks()
+  if err != nil {
+    reportError(err)
+    return
+  }
+
+  views.NewSubscriptionRenderer(validBooks).ServeView(w, r)
+}
+
+
 func newBookHandler(w http.ResponseWriter, r *http.Request) {
   db, err := dbConn()
   if err != nil {
     reportError(err)
+    return
   }
   defer db.Close()
 
   r.ParseForm()
-
   bookId := r.Form["bookId"][0]
   delimiter := r.Form["delim"][0]
 
@@ -184,6 +184,7 @@ func newSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
   db, err := dbConn()
   if err != nil {
     reportError(err)
+    return
   }
   defer db.Close()
 
@@ -200,11 +201,54 @@ func newSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
   book, err := db.GetBook(bookId)
   if err != nil {
     reportError(err)
-  } else {
-    views.SubscriptionSuccessRenderer(book, emailAddr).ServeView(w, r)
+    return
   }
+
+  views.SubscriptionSuccessRenderer(book, emailAddr).ServeView(w, r)
 }
 
+func singleUnsubscribeHandler(w http.ResponseWriter, r *http.Request) {
+  db, err := dbConn()
+  if err != nil {
+    reportError(err)
+    return
+  }
+  defer db.Close()
+
+  vars := mux.Vars(r)
+  sub, err := db.UnsubscribeSingle(vars["subscription_id"])
+  if err != nil {
+    reportError(err)
+    return
+  }
+
+  book, err := db.GetBook(sub.BookId)
+  if err != nil {
+    reportError(err)
+    return
+  }
+
+  views.UnsubscriptionSuccessRenderer(book, sub).ServeView(w, r)
+}
+
+func emailUnsubscribeHandler(w http.ResponseWriter, r *http.Request) {
+  db, err := dbConn()
+  if err != nil {
+    reportError(err)
+    return
+  }
+  defer db.Close()
+
+  vars := mux.Vars(r)
+  emailAddress := vars["email_address"]
+  err = db.UnsubscribeEmail(emailAddress)
+  if err != nil {
+    reportError(err)
+    return
+  }
+
+  views.EmailUnsubscriptionSuccessRenderer(emailAddress).ServeView(w, r)
+}
 
 func getErrorReportingClient(projectId string) (client *errorreporting.Client, err error) {
   ctx := context.Background()
