@@ -33,6 +33,12 @@ type SubscriptionMeta struct {
   Validated bool
 }
 
+type GutenBookMeta struct {
+  Title string
+  Author string
+  Chapters int
+}
+
 // this is gnarly and i should be using the metadata
 var bookEnd = regexp.MustCompile("^\\*\\*\\* ?END .+\\*\\*\\*$")
 var authorPatt = regexp.MustCompile("^Author: (.*)$")

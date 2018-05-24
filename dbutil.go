@@ -11,6 +11,25 @@ import (
   _ "github.com/go-sql-driver/mysql"
 )
 
+type BookRecord struct {
+  BookId string
+  Title string
+  Author string
+  Chapters int
+  Delimiter string
+  ScheduleType int
+}
+
+type SubscriptionRecord struct {
+  SubscriptionId string
+  BookId string
+  Email string
+  ChaptersSent int
+  Active bool
+  Validated bool
+}
+
+
 func dbConn() (db *sql.DB, err error) {
   cfg := config.LoadConfig()
   if appengine.IsDevAppServer() {

@@ -15,114 +15,52 @@ import (
   "google.golang.org/appengine"
 )
 
-type sendEmailResponse struct {
-  subId string
-  err error
-}
-
 func main() {
   r := mux.NewRouter()
 
-  /*
-    Nightly cron endpoint
-  */
+  // Nightly cron endpoint
   r.HandleFunc("/send/", cronHandler)
 
-  /*
-   Serve static assets
-  */
+  // Serve static assets
   r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
-  /*
-   Views
-  */
+  // Views
   r.HandleFunc("/books/", (&views.TplRenderer{Tpl: "book", IsWeb: true}).ServeView).Methods("GET")
-
   r.HandleFunc("/", newSubscriptionView).Methods("GET")
-
-  //r.HandleFunc("/deactivate/", (&views.TplRenderer{
-  //  "subscription_form",
-  //  views.SubscriptionFormView{"pause subscription", "/api/subscriptions/deactivate/", opts},
-  //  true,
-  //}).ServeView).Methods("GET")
-
-  //r.HandleFunc("/reactivate/", (&views.TplRenderer{
-  //  "subscription_form",
-  //  views.SubscriptionFormView{"reactivate subscription", "/api/subscriptions/reactivate/", opts},
-  //  true,
-  //}).ServeView).Methods("GET")
-
+  //r.HandleFunc("/success", subscriptionSuccessView).Methods("GET")
   //r.HandleFunc("/validate", validateView).Methods("POST")
+  //r.HandleFunc("/unsubscribe", unsubscribeView).Methods("POST")
 
-  /*
-   Endpoints
-  */
+  // Endpoints
   r.HandleFunc("/api/books/new/", newBookHandler).Methods("POST")
   r.HandleFunc("/api/subscriptions/new/", newSubscriptionHandler).Methods("POST")
-  //r.HandleFunc("/api/subscriptions/validate/{subscription_id}", validateSubscriptionHandler).Methods("GET")
-  //r.HandleFunc("/api/subscriptions/deactivate/{subscription_id}", deactivateSubscriptionHandler).Methods("GET")
   //r.HandleFunc("/api/subscriptions/reactivate/{subscription_id}", reactivateSubscriptionHandler).Methods("GET")
+  //r.HandleFunc("/api/subscriptions/validate/{subscription_id}", validateSubscriptionHandler).Methods("GET")
 
   http.Handle("/", r)
   appengine.Main()
 }
 
+/*
+  Views
+*/
 func newSubscriptionView(w http.ResponseWriter, r *http.Request) {
   validBooks, err := GetBooks()
   if err != nil {
     reportError(err)
   }
 
-  var opts []views.BookOption
-  for _, book := range validBooks {
-    opts = append(opts, views.BookOption{book.BookId, book.Title, book.Author})
-  }
-
-  (&views.TplRenderer{
-    "subscription_form",
-    views.SubscriptionFormView{"new subscription", "/api/subscriptions/new/", opts},
-    true,
-  }).ServeView(w, r)
+  views.NewSubscriptionRenderer(validBooks).ServeView(w, r)
 }
 
-func sendEmailForSubscription(subscriptionId string, ctx context.Context, ch chan sendEmailResponse) {
-  var err error
-  defer func() {
-    ch <- sendEmailResponse{subscriptionId, err}
-  }()
 
-  sub, err := GetSubscription(subscriptionId)
-  if err != nil {
-    return
-  }
+/*
+  Cron logic
+*/
 
-  bookMeta, err := GetBook(sub.BookId)
-  if err != nil {
-    return
-  }
-
-  body, err := books.GetChapter(sub.BookId, sub.ChaptersSent + 1, ctx)
-  if err != nil {
-    return
-  }
-
-  content := strings.Replace(body, "\n", "<br/>", -1)
-  emailBody, err := (&views.TplRenderer{
-    "email",
-    views.EmailView{bookMeta.Title, bookMeta.Author, sub.ChaptersSent + 1, content},
-    false,
-  }).GetView()
-  if err != nil {
-    return
-  }
-
-  if err = SendMail(sub.Email, bookMeta.Title, emailBody, ctx); err != nil {
-    return
-  }
-
-  if err = IncrementChaptersSent(sub.SubscriptionId); err != nil {
-    return
-  }
+type sendEmailResponse struct {
+  subId string
+  err error
 }
 
 func cronHandler(w http.ResponseWriter, r *http.Request) {
@@ -151,6 +89,45 @@ func cronHandler(w http.ResponseWriter, r *http.Request) {
   fmt.Fprintf(w, "Done, %d successes out of %d tries", successes, tries)
 }
 
+func sendEmailForSubscription(subscriptionId string, ctx context.Context, ch chan sendEmailResponse) {
+  var err error
+  defer func() {
+    ch <- sendEmailResponse{subscriptionId, err}
+  }()
+
+  sub, err := GetSubscription(subscriptionId)
+  if err != nil {
+    return
+  }
+
+  bookMeta, err := GetBook(sub.BookId)
+  if err != nil {
+    return
+  }
+
+  body, err := books.GetChapter(sub.BookId, sub.ChaptersSent + 1, ctx)
+  if err != nil {
+    return
+  }
+
+  content := strings.Replace(body, "\n", "<br/>", -1)
+  emailBody, err := views.NewEmailRenderer(bookMeta, sub, content).GetView()
+  if err != nil {
+    return
+  }
+
+  if err = SendMail(sub.Email, bookMeta.Title, emailBody, ctx); err != nil {
+    return
+  }
+
+  if err = IncrementChaptersSent(sub.SubscriptionId); err != nil {
+    return
+  }
+}
+
+/*
+  Endpoints
+*/
 func newBookHandler(w http.ResponseWriter, r *http.Request) {
   r.ParseForm()
 
@@ -164,7 +141,14 @@ func newBookHandler(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  _, err = NewBook(meta)
+  _, err = NewBook(books.BookMeta{
+    bookId,
+    meta.Title,
+    meta.Author,
+    meta.Chapters,
+    delimiter,
+    0, // BIGF
+  })
   if err != nil {
     reportError(err)
     return
@@ -188,12 +172,13 @@ func newSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
   fmt.Fprintf(w, "New subscription with ID %s and address %s", bookId, emailAddr)
 }
 
+
 func getErrorReportingClient(projectId string) (client *errorreporting.Client, err error) {
   ctx := context.Background()
   return errorreporting.NewClient(ctx, projectId, errorreporting.Config{
     ServiceName: "gutenbits",
-      OnError: func(err error) {
-      log.Printf("Could not log error: %v", err)
+    OnError: func(err error) {
+      panic(err)
     },
   })
 }
@@ -210,5 +195,4 @@ func reportError(err error) {
   errorClient.Report(errorreporting.Entry{
     Error: err,
   })
-  panic(err)
 }

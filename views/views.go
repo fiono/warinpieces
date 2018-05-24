@@ -1,20 +1,34 @@
 package views
 
-type BookOption struct {
-  BookId string
-  Title string
-  Author string
-}
+import (
+  "books"
+)
 
-type SubscriptionFormView struct {
+type subscriptionFormView struct {
   Title string
   Endpoint string
-  Options []BookOption
+  BookOptions []books.BookMeta
 }
 
-type EmailView struct {
+type emailView struct {
   Title string
   Author string
   Chapter int
   Body string
+}
+
+func NewSubscriptionRenderer(bookOptions []books.BookMeta) *TplRenderer {
+  return &TplRenderer{
+    "subscription_form",
+    subscriptionFormView{"new subscription", "/api/subscriptions/new/", bookOptions},
+    true,
+  }
+}
+
+func NewEmailRenderer(book books.BookMeta, sub books.SubscriptionMeta, content string) *TplRenderer {
+  return &TplRenderer{
+    "email",
+    emailView{book.Title, book.Author, sub.ChaptersSent + 1, content},
+    false,
+  }
 }
