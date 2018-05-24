@@ -27,7 +27,6 @@ func main() {
   // Views
   r.HandleFunc("/books/", (&views.TplRenderer{Tpl: "book", IsWeb: true}).ServeView).Methods("GET")
   r.HandleFunc("/", newSubscriptionView).Methods("GET")
-  //r.HandleFunc("/success", subscriptionSuccessView).Methods("GET")
   //r.HandleFunc("/validate", validateView).Methods("POST")
   //r.HandleFunc("/unsubscribe", unsubscribeView).Methods("POST")
 
@@ -198,7 +197,12 @@ func newSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  fmt.Fprintf(w, "New subscription with ID %s and address %s", bookId, emailAddr)
+  book, err := db.GetBook(bookId)
+  if err != nil {
+    reportError(err)
+  } else {
+    views.SubscriptionSuccessRenderer(book, emailAddr).ServeView(w, r)
+  }
 }
 
 

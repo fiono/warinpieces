@@ -1,0 +1,17 @@
+{{template "header"}}
+
+<div class="container-fluid" id="content_blob">
+  <h1>Success!</h1>
+
+  <p>
+    You've subscribed to receive a chapter of <i>{{ .Book.Title }}</i> by {{ .Book.Author }} on a weekly basis!
+    You'll finish the book in about {{ .Book.Chapters }} weeks.
+  </p>
+  
+  <p>
+    We're sending a confirmation email to {{ .EmailAddress }}. Once you confirm your subscriptioin, you'll receive your first chapter.
+  </p>
+
+</div>
+
+{{template "footer"}}
