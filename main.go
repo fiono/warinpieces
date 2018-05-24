@@ -76,13 +76,12 @@ func cronHandler(w http.ResponseWriter, r *http.Request) {
   }
   defer db.Close()
 
-  ctx := appengine.NewContext(r)
-
   subs, err := db.GetSubscriptionsForSending()
   if err != nil {
     reportError(err)
   }
 
+  ctx := appengine.NewContext(r)
   ch := make(chan sendEmailResponse)
   for _, sub := range subs {
     go sendEmailForSubscription(sub.SubscriptionId, ctx, ch)
@@ -135,7 +134,7 @@ func sendEmailForSubscription(subscriptionId string, ctx context.Context, ch cha
     return
   }
 
-  if err = SendMail(sub.Email, bookMeta.Title, emailBody, ctx); err != nil {
+  if err = SendMail(sub.Email, bookMeta.Title, emailBody, body, ctx); err != nil {
     return
   }
 

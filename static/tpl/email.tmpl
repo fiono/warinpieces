@@ -1,15 +1,30 @@
-<p>
-  <strong>Chapter {{.Chapter}}</strong>
-</p>
+<head>
+  <link href="https://fonts.googleapis.com/css?family=Lora" rel="stylesheet">
+</head>
 
-<hr>
+</body>
+  <div style="font-family: 'Lora', serif; padding: 40px;">
+    <p>
+      <strong style="font-size: 16pt">Chapter {{ .Chapter }}</strong>
+    </p>
 
-<div>
-  {{.Body}}
-</div>
+    <hr>
 
-<hr>
+    <div style="font-size: 14pt">
+      {{ .Body }}
+    </div>
 
-<p>
-  This is the bottom of this email where I tell you things. For example, this is {{.Title}} by {{.Author}}.
-</p>
+    <hr>
+
+    <p>
+      This eBook is for the use of anyone anywhere at no cost and with almost
+      no restrictions whatsoever. You may copy it, give it away or re-use
+      it under the terms of the Project Gutenberg License included online at
+      <a href="https://www.gutenberg.org/wiki/Gutenberg%3AThe_Project_Gutenberg_License">www.gutenberg.org</a>.
+    </p>
+    <p>
+      You signed up to receive an installation of <i>{{ .Title }}</i> every week at <a href="http://gutenbits.appspot.com">gutenbits.appspot.com</a>.
+      If you'd like stop stop receiving these emaiks, you can unsubscribe <a href="http://gutenbits.appspot.com/bigf/">here.</a>
+    </p>
+  </div>
+</body>

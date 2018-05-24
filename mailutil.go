@@ -12,7 +12,7 @@ import (
   "gopkg.in/sendgrid/sendgrid-go.v2"
 )
 
-func SendMail(to, subject, body string, ctx context.Context) error {
+func SendMail(to, subject, html, plaintext string, ctx context.Context) error {
   cfg := config.LoadConfig()
 
   sg := sendgrid.NewSendGridClientWithApiKey(cfg.Email.SendgridApiKey)
@@ -24,7 +24,8 @@ func SendMail(to, subject, body string, ctx context.Context) error {
   message.AddTo(to)
   message.SetFrom(cfg.Email.FromEmail)
   message.SetSubject(subject)
-  message.SetHTML(body)
+  message.SetHTML(html)
+  message.SetText(plaintext)
 
   return sg.Send(message)
 }
