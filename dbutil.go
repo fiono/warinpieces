@@ -136,7 +136,7 @@ func GetSubscription(subscriptionId string) (sub books.SubscriptionMeta, err err
   return books.SubscriptionMeta{subscriptionId, bookId, emailAddress, chaptersSent, isActive, isValidated}, nil
 }
 
-func GetActiveSubscriptions() (subs []books.SubscriptionMeta, err error) {
+func GetSubscriptionsForSending() (subs []books.SubscriptionMeta, err error) {
   db, err := dbConn()
   if err != nil {
     return
@@ -144,7 +144,10 @@ func GetActiveSubscriptions() (subs []books.SubscriptionMeta, err error) {
   defer db.Close()
 
   rows, err := db.Query(
-    "SELECT subscription_id, book_id, email_address, chapters_sent, is_active, is_validated FROM subscriptions WHERE is_active=true",
+    `SELECT
+      subscription_id, book_id, email_address, chapters_sent, is_active, is_validated
+      FROM subscriptions
+      WHERE is_active = true AND DAYOFWEEK(DATE_SUB(create_datetime, INTERVAL 1 DAY)) = DAYOFWEEK(NOW())`, // temp hack to avoid resending 1st chapter
   )
   if err != nil {
     return

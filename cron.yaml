@@ -1,4 +1,4 @@
 cron:
 - description: "send me an email"
   url: /send/
-  schedule: every 10 minutes
+  schedule: every 3 hours

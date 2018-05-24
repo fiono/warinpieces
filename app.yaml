@@ -9,7 +9,7 @@ handlers:
   script: _go_app
   login: admin
 
-- url: /api/books/new
+- url: /books/
   script: _go_app
   login: admin
 

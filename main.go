@@ -128,7 +128,7 @@ func sendEmailForSubscription(subscriptionId string, ctx context.Context, ch cha
 func cronHandler(w http.ResponseWriter, r *http.Request) {
   ctx := appengine.NewContext(r)
 
-  subs, err := GetActiveSubscriptions()
+  subs, err := GetSubscriptionsForSending()
   if err != nil {
     reportError(err)
   }
