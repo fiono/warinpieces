@@ -39,6 +39,7 @@ type GutenBookMeta struct {
   Chapters int
 }
 
+
 // this is gnarly and i should be using the metadata
 var bookEnd = regexp.MustCompile("^\\*\\*\\* ?END .+\\*\\*\\*$")
 var authorPatt = regexp.MustCompile("^Author: (.*)$")
@@ -81,7 +82,7 @@ func GetChapter(bookId string, chapter int, ctx context.Context) (body string, e
   return string(buf[:n]), nil
 }
 
-func ChapterizeBook(bookId string, delimiter string, ctx context.Context) (meta BookMeta, err error) {
+func ChapterizeBook(bookId string, delimiter string, ctx context.Context) (meta GutenBookMeta, err error) {
   chapterPatt := regexp.MustCompile(fmt.Sprintf("^%s .+$", delimiter))
 
   var author, title string
@@ -106,7 +107,7 @@ func ChapterizeBook(bookId string, delimiter string, ctx context.Context) (meta 
   for scanner.Scan() {
     line := scanner.Text()
     if bookEnd.MatchString(line) {
-      return BookMeta{bookId, title, author, chapterInd, delimiter, 0}, nil // BIGF
+      return GutenBookMeta{title, author, chapterInd}, nil // BIGF
     } else if authorPatt.MatchString(line) && author == "" {
       author = authorPatt.FindStringSubmatch(line)[1]
     } else if titlePatt.MatchString(line) && title == "" {
