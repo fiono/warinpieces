@@ -1,7 +1,11 @@
 package views
 
 import (
+  "fmt"
+  "net/url"
+
   "books"
+  "config"
 )
 
 type subscriptionFormView struct {
@@ -25,7 +29,8 @@ type emailView struct {
   Author string
   Chapter int
   Body string
-  SubscriptionId string
+  HomeUrl string
+  UnsubUrl string
 }
 
 func NewSubscriptionRenderer(bookOptions []books.BookMeta) *TplRenderer {
@@ -44,10 +49,10 @@ func SubscriptionSuccessRenderer(book books.BookMeta, email string) *TplRenderer
   }
 }
 
-func UnsubscriptionSuccessRenderer(book books.BookMeta, sub books.SubscriptionMeta) *TplRenderer {
+func UnsubscriptionSuccessRenderer(book books.BookMeta, emailAddress string) *TplRenderer {
   return &TplRenderer{
     "single_unsub_success",
-    unsubscriptionSuccessView{book, sub.Email},
+    unsubscriptionSuccessView{book, emailAddress},
     true,
   }
 }
@@ -62,10 +67,15 @@ func EmailUnsubscriptionSuccessRenderer(emailAddress string) *TplRenderer {
   }
 }
 
-func NewEmailRenderer(book books.BookMeta, sub books.SubscriptionMeta, content string) *TplRenderer {
+func NewEmailRenderer(book books.BookMeta, sub books.SubscriptionMeta, token string, content string) *TplRenderer {
+  cfg := config.LoadConfig()
+  urlBase := cfg.Main.UrlBase
+
+  params := url.Values{"email_address": {sub.Email}, "book_id": {book.BookId}, "token": {token}}
+  unsubUrl := fmt.Sprintf("%s/unsubscribe/?%s", cfg.Main.UrlBase, params.Encode())
   return &TplRenderer{
     "email",
-    emailView{book.Title, book.Author, sub.ChaptersSent + 1, content, sub.SubscriptionId},
+    emailView{book.Title, book.Author, sub.ChaptersSent + 1, content, urlBase, unsubUrl},
     false,
   }
 }

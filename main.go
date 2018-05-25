@@ -29,8 +29,7 @@ func main() {
 
   r.HandleFunc("/books/new/", newBookHandler).Methods("POST")
   r.HandleFunc("/subscriptions/new/", newSubscriptionHandler).Methods("POST")
-  r.HandleFunc("/unsubscribe/{subscription_id}/", singleUnsubscribeHandler).Methods("GET") // BIGF: add token
-  r.HandleFunc("/unsubscribe_all/{email_address}/", emailUnsubscribeHandler).Methods("GET") // BIGF: add token
+  r.HandleFunc("/unsubscribe/", singleUnsubscribeHandler).Methods("GET")
   //r.HandleFunc("/api/subscriptions/reactivate/{subscription_id}", reactivateSubscriptionHandler).Methods("GET")
   //r.HandleFunc("/api/subscriptions/validate/{subscription_id}", validateSubscriptionHandler).Methods("GET")
 
@@ -109,8 +108,10 @@ func sendEmailForSubscription(subscriptionId string, ctx context.Context, ch cha
     return
   }
 
+  token := getSubscriptionToken(sub.BookId, sub.Email)
+
   content := strings.Replace(body, "\n", "<br/>", -1)
-  emailBody, err := views.NewEmailRenderer(bookMeta, sub, content).GetView()
+  emailBody, err := views.NewEmailRenderer(bookMeta, sub, token, content).GetView()
   if err != nil {
     return
   }
@@ -215,39 +216,27 @@ func singleUnsubscribeHandler(w http.ResponseWriter, r *http.Request) {
   }
   defer db.Close()
 
-  vars := mux.Vars(r)
-  sub, err := db.UnsubscribeSingle(vars["subscription_id"])
-  if err != nil {
-    reportError(err)
-    return
+  token := r.URL.Query().Get("token")
+  emailAddress := r.URL.Query().Get("email_address")
+  bookId := r.URL.Query().Get("book_id")
+
+  if token == getSubscriptionToken(bookId, emailAddress) {
+    err := db.UnsubscribeSingle(emailAddress, bookId)
+    if err != nil {
+      reportError(err)
+      return
+    }
+
+    book, err := db.GetBook(bookId)
+    if err != nil {
+      reportError(err)
+      return
+    }
+
+    views.UnsubscriptionSuccessRenderer(book, emailAddress).ServeView(w, r)
+  } else {
+    return // BIGF
   }
-
-  book, err := db.GetBook(sub.BookId)
-  if err != nil {
-    reportError(err)
-    return
-  }
-
-  views.UnsubscriptionSuccessRenderer(book, sub).ServeView(w, r)
-}
-
-func emailUnsubscribeHandler(w http.ResponseWriter, r *http.Request) {
-  db, err := dbConn()
-  if err != nil {
-    reportError(err)
-    return
-  }
-  defer db.Close()
-
-  vars := mux.Vars(r)
-  emailAddress := vars["email_address"]
-  err = db.UnsubscribeEmail(emailAddress)
-  if err != nil {
-    reportError(err)
-    return
-  }
-
-  views.EmailUnsubscriptionSuccessRenderer(emailAddress).ServeView(w, r)
 }
 
 func getErrorReportingClient(projectId string) (client *errorreporting.Client, err error) {

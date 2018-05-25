@@ -8,9 +8,15 @@ import (
 )
 
 type GutenConfig struct {
+  Main appConfig
   Email emailConfig
   Storage storageConfig
   Db dbConfig
+}
+
+type appConfig struct {
+  UrlBase string `toml:"url_base"`
+  HashSalt string `toml:"hash_salt"`
 }
 
 type emailConfig struct {

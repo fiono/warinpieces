@@ -1,11 +1,13 @@
 package main
 
 import (
+  "crypto/md5"
   "database/sql"
   "fmt"
 
   "books"
   "config"
+
 
   "google.golang.org/appengine"
   _ "github.com/go-sql-driver/mysql"
@@ -13,6 +15,7 @@ import (
 
 type DbConn struct {
   Conn *sql.DB
+  Cfg config.GutenConfig
 }
 
 func dbConn() (db *DbConn, err error) {
@@ -24,7 +27,7 @@ func dbConn() (db *DbConn, err error) {
   } else {
     conn, err = sql.Open("mysql", fmt.Sprintf("%s:%s@cloudsql(%s)/%s", cfg.Db.User, cfg.Db.Password, cfg.Db.ConnectionName, cfg.Db.DbName))
   }
-  return &DbConn{conn}, err
+  return &DbConn{conn, cfg}, err
 }
 
 func (db *DbConn) Close() {
@@ -94,6 +97,12 @@ func (db *DbConn) NewBook(bookMeta books.BookMeta) error {
   Subscription utils
 */
 
+func getSubscriptionToken(bookId, emailAddress string) string {
+  cfg := config.LoadConfig()
+  h := md5.Sum([]byte(fmt.Sprintf("%s-%s-%s", bookId, emailAddress, cfg.Main.HashSalt)))
+  return fmt.Sprintf("%x", h)
+}
+
 func (db *DbConn) NewSubscription(bookId, emailAddr string) error {
   _, err := db.Conn.Exec(
     "INSERT INTO subscriptions (subscription_id, book_id, email_address, create_datetime) VALUES (DEFAULT, ?, ?, NOW())",
@@ -159,16 +168,13 @@ func (db *DbConn) IncrementChaptersSent(subscriptionId string) error {
   return err
 }
 
-func (db *DbConn) UnsubscribeSingle(subscriptionId string) (sub books.SubscriptionMeta, err error) {
-  _, err = db.Conn.Exec(
-    "UPDATE subscriptions SET is_active = 0 WHERE subscription_id = ?",
-    subscriptionId,
+func (db *DbConn) UnsubscribeSingle(emailAddress, bookId string) error {
+  _, err := db.Conn.Exec(
+    "UPDATE subscriptions SET is_active = 0 WHERE email_address = ? and book_id = ?",
+    emailAddress,
+    bookId,
   )
-  if err != nil {
-    return
-  }
-
-  return db.GetSubscription(subscriptionId)
+  return err
 }
 
 func (db *DbConn) UnsubscribeEmail(emailAddress string) error {
