@@ -111,7 +111,7 @@ func sendEmailForSubscriptionSingle(subscriptionId string, ctx context.Context) 
 
   token := getSubscriptionToken(sub.BookId, sub.Email)
 
-  content := strings.Replace(body, "\n", "<br/>", -1)
+  content := strings.Replace(body, "\n\n", "<br/><br/>", -1)
   emailBody, err := views.EmailRenderer(token, content, book, sub).GetView()
   if err != nil {
     return err
