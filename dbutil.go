@@ -128,12 +128,31 @@ func (db *DbConn) GetSubscription(subscriptionId string) (sub books.Subscription
   return books.SubscriptionMeta{subscriptionId, bookId, emailAddress, chaptersSent, isActive, isValidated}, nil
 }
 
+func (db *DbConn) GetSubscriptionByData(bookId, emailAddress string) (sub books.SubscriptionMeta, err error) {
+  var subscriptionId string
+  var chaptersSent int
+  var isActive, isValidated bool
+
+  err = db.Conn.QueryRow(
+    "SELECT subscription_id, chapters_sent, is_active, is_validated FROM subscriptions WHERE book_id = ? AND email_address = ?",
+    bookId,
+    emailAddress,
+  ).Scan(&subscriptionId, &chaptersSent, &isActive, &isValidated)
+  if err != nil {
+    return
+  }
+
+  return books.SubscriptionMeta{subscriptionId, bookId, emailAddress, chaptersSent, isActive, isValidated}, nil
+}
+
 func (db *DbConn) GetSubscriptionsForSending() (subs []books.SubscriptionMeta, err error) {
   rows, err := db.Conn.Query(
     `SELECT
       subscription_id, book_id, email_address, chapters_sent, is_active, is_validated
       FROM subscriptions
-      WHERE is_active = true AND DAYOFWEEK(DATE_SUB(create_datetime, INTERVAL 1 DAY)) = DAYOFWEEK(NOW())`, // temp hack to avoid resending 1st chapter
+      WHERE is_active = true
+        AND is_validated = true AND
+        DAYOFWEEK(DATE_SUB(create_datetime, INTERVAL 1 DAY)) = DAYOFWEEK(NOW())`, // temp hack to avoid resending 1st chapter
   )
   if err != nil {
     return
@@ -158,6 +177,15 @@ func (db *DbConn) GetSubscriptionsForSending() (subs []books.SubscriptionMeta, e
     return
   }
   return subs, nil
+}
+
+func (db *DbConn) ActivateSubscription(bookId, emailAddress string) error {
+  _, err := db.Conn.Exec(
+    "UPDATE subscriptions SET is_active = 1, is_validated = 1 WHERE email_address = ? AND book_id = ?",
+    emailAddress,
+    bookId,
+  )
+  return err
 }
 
 func (db *DbConn) IncrementChaptersSent(subscriptionId string) error {

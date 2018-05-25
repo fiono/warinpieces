@@ -24,14 +24,14 @@ func main() {
   // Serve static assets
   r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
-  r.HandleFunc("/", newSubscriptionView).Methods("GET")
   r.HandleFunc("/books/", (&views.TplRenderer{Tpl: "book", IsWeb: true}).ServeView).Methods("GET")
-
   r.HandleFunc("/books/new/", newBookHandler).Methods("POST")
+
+  r.HandleFunc("/", newSubscriptionView).Methods("GET")
   r.HandleFunc("/subscriptions/new/", newSubscriptionHandler).Methods("POST")
-  r.HandleFunc("/unsubscribe/", singleUnsubscribeHandler).Methods("GET")
-  //r.HandleFunc("/api/subscriptions/reactivate/{subscription_id}", reactivateSubscriptionHandler).Methods("GET")
-  //r.HandleFunc("/api/subscriptions/validate/{subscription_id}", validateSubscriptionHandler).Methods("GET")
+  r.HandleFunc("/subscriptions/unsubscribe/", singleUnsubscribeHandler).Methods("GET")
+  r.HandleFunc("/subscriptions/confirm/", validateSubscriptionHandler).Methods("GET")
+  //r.HandleFunc("/subscriptions/reactivate/{subscription_id}", reactivateSubscriptionHandler).Methods("GET")
 
   http.Handle("/", r)
   appengine.Main()
@@ -78,51 +78,50 @@ func cronHandler(w http.ResponseWriter, r *http.Request) {
     }
   }
 
+  log.Printf("Done, %d successes out of %d tries", successes, tries)
   fmt.Fprintf(w, "Done, %d successes out of %d tries", successes, tries)
 }
 
 func sendEmailForSubscription(subscriptionId string, ctx context.Context, ch chan sendEmailResponse) {
+  ch <- sendEmailResponse{subscriptionId, sendEmailForSubscriptionSingle(subscriptionId, ctx)}
+}
+
+func sendEmailForSubscriptionSingle(subscriptionId string, ctx context.Context) error {
   db, err := dbConn()
   if err != nil {
     reportError(err)
-    return
+    return err
   }
   defer db.Close()
 
-  defer func() {
-    ch <- sendEmailResponse{subscriptionId, err}
-  }()
-
   sub, err := db.GetSubscription(subscriptionId)
   if err != nil {
-    return
+    return err
   }
 
-  bookMeta, err := db.GetBook(sub.BookId)
+  book, err := db.GetBook(sub.BookId)
   if err != nil {
-    return
+    return err
   }
 
   body, err := books.GetChapter(sub.BookId, sub.ChaptersSent + 1, ctx)
   if err != nil {
-    return
+    return err
   }
 
   token := getSubscriptionToken(sub.BookId, sub.Email)
 
   content := strings.Replace(body, "\n", "<br/>", -1)
-  emailBody, err := views.NewEmailRenderer(bookMeta, sub, token, content).GetView()
+  emailBody, err := views.EmailRenderer(token, content, book, sub).GetView()
   if err != nil {
-    return
+    return err
   }
 
-  if err = SendMail(sub.Email, bookMeta.Title, emailBody, body, ctx); err != nil {
-    return
+  if err = SendMail(sub.Email, book.Title, emailBody, body, ctx); err != nil {
+    return err
   }
 
-  if err = db.IncrementChaptersSent(sub.SubscriptionId); err != nil {
-    return
-  }
+  return db.IncrementChaptersSent(sub.SubscriptionId)
 }
 
 /*
@@ -192,9 +191,9 @@ func newSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
   r.ParseForm()
 
   bookId := r.Form["bookId"][0]
-  emailAddr := r.Form["email"][0]
+  emailAddress := r.Form["email"][0]
 
-  if err := db.NewSubscription(bookId, emailAddr); err != nil {
+  if err := db.NewSubscription(bookId, emailAddress); err != nil {
     reportError(err)
     return
   }
@@ -205,7 +204,20 @@ func newSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  views.SubscriptionSuccessRenderer(book, emailAddr).ServeView(w, r)
+  token := getSubscriptionToken(book.BookId, emailAddress)
+  emailBody, err := views.ConfirmEmailRenderer(emailAddress, token, book).GetView()
+  if err != nil {
+    reportError(err)
+    return
+  }
+
+  ctx := appengine.NewContext(r)
+  if err = SendMail(emailAddress, book.Title, emailBody, "Success!", ctx); err != nil {
+    reportError(err)
+    return
+  }
+
+  views.SubscriptionSuccessRenderer(book, emailAddress).ServeView(w, r)
 }
 
 func singleUnsubscribeHandler(w http.ResponseWriter, r *http.Request) {
@@ -233,7 +245,49 @@ func singleUnsubscribeHandler(w http.ResponseWriter, r *http.Request) {
       return
     }
 
-    views.UnsubscriptionSuccessRenderer(book, emailAddress).ServeView(w, r)
+    views.UnsubscriptionSuccessRenderer(emailAddress, book).ServeView(w, r)
+  } else {
+    return // BIGF
+  }
+}
+
+func validateSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
+  db, err := dbConn()
+  if err != nil {
+    reportError(err)
+    return
+  }
+  defer db.Close()
+
+  token := r.URL.Query().Get("token")
+  emailAddress := r.URL.Query().Get("email_address")
+  bookId := r.URL.Query().Get("book_id")
+
+  if token == getSubscriptionToken(bookId, emailAddress) { // this should actually be time-sensitive ¯\_(ツ)_/¯
+    if err = db.ActivateSubscription(bookId, emailAddress); err != nil {
+      reportError(err)
+      return
+    }
+
+    sub, err := db.GetSubscriptionByData(bookId, emailAddress)
+    if err != nil {
+      reportError(err)
+      return
+    }
+
+    book, err := db.GetBook(bookId)
+    if err != nil {
+      reportError(err)
+      return
+    }
+
+    ctx := appengine.NewContext(r)
+    if err := sendEmailForSubscriptionSingle(sub.SubscriptionId, ctx); err != nil {
+      reportError(err)
+      return
+    }
+
+    views.ConfirmationSuccessRenderer(emailAddress, book).ServeView(w, r)
   } else {
     return // BIGF
   }
