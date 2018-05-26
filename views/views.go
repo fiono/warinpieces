@@ -8,12 +8,6 @@ import (
   "config"
 )
 
-type subscriptionFormView struct {
-  Title string
-  Endpoint string
-  BookOptions []books.BookMeta
-}
-
 type emailView struct {
   Book books.BookMeta
   Chapter int
@@ -26,7 +20,10 @@ type emailView struct {
 func NewSubscriptionRenderer(bookOptions []books.BookMeta) *TplRenderer {
   return &TplRenderer{
     "subscription_form",
-    subscriptionFormView{"new subscription", "/subscriptions/new/", bookOptions},
+    struct {
+      Endpoint string
+      BookOptions []books.BookMeta
+    } { "/subscriptions/new/", bookOptions },
     true,
   }
 }
