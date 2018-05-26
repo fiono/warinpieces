@@ -31,7 +31,6 @@ func main() {
   r.HandleFunc("/subscriptions/new/", newSubscriptionHandler).Methods("POST")
   r.HandleFunc("/subscriptions/unsubscribe/", singleUnsubscribeHandler).Methods("GET")
   r.HandleFunc("/subscriptions/confirm/", validateSubscriptionHandler).Methods("GET")
-  //r.HandleFunc("/subscriptions/reactivate/{subscription_id}", reactivateSubscriptionHandler).Methods("GET")
 
   http.Handle("/", r)
   appengine.Main()
@@ -264,11 +263,6 @@ func validateSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
   bookId := r.URL.Query().Get("book_id")
 
   if token == getSubscriptionToken(bookId, emailAddress) { // this should actually be time-sensitive ¯\_(ツ)_/¯
-    if err = db.ActivateSubscription(bookId, emailAddress); err != nil {
-      reportError(err)
-      return
-    }
-
     sub, err := db.GetSubscriptionByData(bookId, emailAddress)
     if err != nil {
       reportError(err)
@@ -281,10 +275,17 @@ func validateSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
       return
     }
 
-    ctx := appengine.NewContext(r)
-    if err := sendEmailForSubscriptionSingle(sub.SubscriptionId, ctx); err != nil {
-      reportError(err)
-      return
+    if !sub.Validated {
+      if err = db.ActivateSubscription(bookId, emailAddress); err != nil {
+        reportError(err)
+        return
+      }
+
+      ctx := appengine.NewContext(r)
+      if err := sendEmailForSubscriptionSingle(sub.SubscriptionId, ctx); err != nil {
+        reportError(err)
+        return
+      }
     }
 
     views.ConfirmationSuccessRenderer(emailAddress, book).ServeView(w, r)
