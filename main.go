@@ -1,6 +1,7 @@
 package main
 
 import (
+  "errors"
   "fmt"
   "log"
   "net/http"
@@ -9,7 +10,6 @@ import (
   "books"
   "views"
 
-  "cloud.google.com/go/errorreporting"
   "github.com/gorilla/mux"
   "golang.org/x/net/context"
   "google.golang.org/appengine"
@@ -48,14 +48,14 @@ type sendEmailResponse struct {
 func cronHandler(w http.ResponseWriter, r *http.Request) {
   db, err := dbConn()
   if err != nil {
-    reportError(err)
+    reportError(r, err)
     return
   }
   defer db.Close()
 
   subs, err := db.GetSubscriptionsForSending()
   if err != nil {
-    reportError(err)
+    reportError(r, err)
     return
   }
 
@@ -73,7 +73,7 @@ func cronHandler(w http.ResponseWriter, r *http.Request) {
       successes++
     }
     if err = db.NewEmailAudit(resp.subId, 0, resp.err != nil); err != nil {
-      reportError(err)
+      reportError(r, err)
     }
   }
 
@@ -88,7 +88,6 @@ func sendEmailForSubscription(subscriptionId string, ctx context.Context, ch cha
 func sendEmailForSubscriptionSingle(subscriptionId string, ctx context.Context) error {
   db, err := dbConn()
   if err != nil {
-    reportError(err)
     return err
   }
   defer db.Close()
@@ -129,14 +128,14 @@ func sendEmailForSubscriptionSingle(subscriptionId string, ctx context.Context) 
 func newSubscriptionView(w http.ResponseWriter, r *http.Request) {
   db, err := dbConn()
   if err != nil {
-    reportError(err)
+    reportAndReturnInternalError(w, r, err)
     return
   }
   defer db.Close()
 
   validBooks, err := db.GetBooks()
   if err != nil {
-    reportError(err)
+    reportError(r, err)
     return
   }
 
@@ -147,7 +146,7 @@ func newSubscriptionView(w http.ResponseWriter, r *http.Request) {
 func newBookHandler(w http.ResponseWriter, r *http.Request) {
   db, err := dbConn()
   if err != nil {
-    reportError(err)
+    reportAndReturnInternalError(w, r, err)
     return
   }
   defer db.Close()
@@ -159,7 +158,7 @@ func newBookHandler(w http.ResponseWriter, r *http.Request) {
   ctx := appengine.NewContext(r)
   meta, err := books.ChapterizeBook(bookId, delimiter, ctx)
   if err != nil {
-    reportError(err)
+    reportAndReturnInternalError(w, r, err)
     return
   }
 
@@ -172,7 +171,7 @@ func newBookHandler(w http.ResponseWriter, r *http.Request) {
     0, // BIGF
   })
   if err != nil {
-    reportError(err)
+    reportAndReturnInternalError(w, r, err)
     return
   }
 
@@ -182,7 +181,7 @@ func newBookHandler(w http.ResponseWriter, r *http.Request) {
 func newSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
   db, err := dbConn()
   if err != nil {
-    reportError(err)
+    reportAndReturnInternalError(w, r, err)
     return
   }
   defer db.Close()
@@ -193,26 +192,30 @@ func newSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
   emailAddress := r.Form["email"][0]
 
   if err := db.NewSubscription(bookId, emailAddress); err != nil {
-    reportError(err)
+    if strings.Contains(err.Error(), "Duplicate entry") {
+      returnClientError(w, "Already have a subscription for that book & email address!")
+    } else {
+      reportAndReturnInternalError(w, r, err)
+    }
     return
   }
 
   book, err := db.GetBook(bookId)
   if err != nil {
-    reportError(err)
+    reportAndReturnInternalError(w, r, err)
     return
   }
 
   token := getSubscriptionToken(book.BookId, emailAddress)
   emailBody, err := views.ConfirmEmailRenderer(emailAddress, token, book).GetView()
   if err != nil {
-    reportError(err)
+    reportAndReturnInternalError(w, r, err)
     return
   }
 
   ctx := appengine.NewContext(r)
   if err = SendMail(emailAddress, book.Title, emailBody, "Success!", ctx); err != nil {
-    reportError(err)
+    reportAndReturnInternalError(w, r, err)
     return
   }
 
@@ -222,7 +225,7 @@ func newSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
 func singleUnsubscribeHandler(w http.ResponseWriter, r *http.Request) {
   db, err := dbConn()
   if err != nil {
-    reportError(err)
+    reportAndReturnInternalError(w, r, err)
     return
   }
   defer db.Close()
@@ -234,26 +237,27 @@ func singleUnsubscribeHandler(w http.ResponseWriter, r *http.Request) {
   if token == getSubscriptionToken(bookId, emailAddress) {
     err := db.UnsubscribeSingle(emailAddress, bookId)
     if err != nil {
-      reportError(err)
+      reportAndReturnInternalError(w, r, err)
       return
     }
 
     book, err := db.GetBook(bookId)
     if err != nil {
-      reportError(err)
+      reportAndReturnInternalError(w, r, err)
       return
     }
 
     views.UnsubscriptionSuccessRenderer(emailAddress, book).ServeView(w, r)
   } else {
-    return // BIGF
+    reportError(r, errors.New(fmt.Sprintf("Unsubscribe fail for user %s", emailAddress)))
+    returnClientError(w, "Token mismatch--failed to unsubscribe.")
   }
 }
 
 func validateSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
   db, err := dbConn()
   if err != nil {
-    reportError(err)
+    reportAndReturnInternalError(w, r, err)
     return
   }
   defer db.Close()
@@ -265,55 +269,31 @@ func validateSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
   if token == getSubscriptionToken(bookId, emailAddress) { // this should actually be time-sensitive ¯\_(ツ)_/¯
     sub, err := db.GetSubscriptionByData(bookId, emailAddress)
     if err != nil {
-      reportError(err)
+      reportAndReturnInternalError(w, r, err)
       return
     }
 
     book, err := db.GetBook(bookId)
     if err != nil {
-      reportError(err)
+      reportAndReturnInternalError(w, r, err)
       return
     }
 
     if !sub.Validated {
       if err = db.ActivateSubscription(bookId, emailAddress); err != nil {
-        reportError(err)
+        reportAndReturnInternalError(w, r, err)
         return
       }
 
       ctx := appengine.NewContext(r)
       if err := sendEmailForSubscriptionSingle(sub.SubscriptionId, ctx); err != nil {
-        reportError(err)
+        reportAndReturnInternalError(w, r, err)
         return
       }
     }
 
     views.ConfirmationSuccessRenderer(emailAddress, book).ServeView(w, r)
   } else {
-    return // BIGF
+    returnClientError(w, "Token mismatch--failed to activate your subscription")
   }
-}
-
-func getErrorReportingClient(projectId string) (client *errorreporting.Client, err error) {
-  ctx := context.Background()
-  return errorreporting.NewClient(ctx, projectId, errorreporting.Config{
-    ServiceName: "gutenbits",
-    OnError: func(err error) {
-      panic(err)
-    },
-  })
-}
-
-func reportError(err error) {
-  errorClient, e := getErrorReportingClient("gutenbits")
-  if e != nil {
-    panic(e)
-  }
-  defer errorClient.Close()
-  defer errorClient.Flush()
-
-  log.Println(err)
-  errorClient.Report(errorreporting.Entry{
-    Error: err,
-  })
 }
