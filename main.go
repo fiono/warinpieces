@@ -5,6 +5,7 @@ import (
   "fmt"
   "log"
   "net/http"
+  "net/mail"
   "strings"
 
   "books"
@@ -183,17 +184,22 @@ func newBookHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func newSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
+  r.ParseForm()
+
+  bookId := r.Form["bookId"][0]
+  parsedAddr, err := mail.ParseAddress(r.Form["email"][0])
+  if err != nil {
+    returnClientError(w, "Invalid email address!")
+    return
+  }
+  emailAddress := parsedAddr.Address
+
   db, err := dbConn()
   if err != nil {
     reportAndReturnInternalError(w, r, err)
     return
   }
   defer db.Close()
-
-  r.ParseForm()
-
-  bookId := r.Form["bookId"][0]
-  emailAddress := r.Form["email"][0]
 
   if err := db.NewSubscription(bookId, emailAddress); err != nil {
     if strings.Contains(err.Error(), "Duplicate entry") {
