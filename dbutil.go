@@ -196,7 +196,7 @@ func (db *DbConn) IncrementChaptersSent(subscriptionId string) error {
   return err
 }
 
-func (db *DbConn) UnsubscribeSingle(emailAddress, bookId string) error {
+func (db *DbConn) DeactivateSingle(emailAddress, bookId string) error {
   _, err := db.Conn.Exec(
     "UPDATE subscriptions SET is_active = 0 WHERE email_address = ? and book_id = ?",
     emailAddress,

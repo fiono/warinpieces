@@ -119,6 +119,10 @@ func sendEmailForSubscriptionSingle(subscriptionId string, ctx context.Context) 
     return err
   }
 
+  if sub.ChaptersSent + 1 == book.Chapters {
+    db.IncrementChaptersSent(sub.SubscriptionId)
+    return db.DeactivateSingle(sub.Email, sub.BookId)
+  }
   return db.IncrementChaptersSent(sub.SubscriptionId)
 }
 
@@ -235,7 +239,7 @@ func singleUnsubscribeHandler(w http.ResponseWriter, r *http.Request) {
   bookId := r.URL.Query().Get("book_id")
 
   if token == getSubscriptionToken(bookId, emailAddress) {
-    err := db.UnsubscribeSingle(emailAddress, bookId)
+    err := db.DeactivateSingle(emailAddress, bookId)
     if err != nil {
       reportAndReturnInternalError(w, r, err)
       return
