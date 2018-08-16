@@ -18,11 +18,14 @@ type DbConn struct {
 }
 
 func dbConn() (db *DbConn, err error) {
-	cfg := config.LoadConfig()
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		return
+	}
 
 	var conn *sql.DB
 	if appengine.IsDevAppServer() {
-		conn, err = sql.Open("mysql", fmt.Sprintf("%s:%s@/%s", cfg.Db.User, cfg.Db.Password, cfg.Db.DbName))
+		conn, err = sql.Open("mysql", fmt.Sprintf("%s@/%s", cfg.Db.User, cfg.Db.DbName))
 	} else {
 		conn, err = sql.Open("mysql", fmt.Sprintf("%s:%s@cloudsql(%s)/%s", cfg.Db.User, cfg.Db.Password, cfg.Db.ConnectionName, cfg.Db.DbName))
 	}
@@ -96,10 +99,16 @@ func (db *DbConn) NewBook(bookMeta books.BookMeta) error {
   Subscription utils
 */
 
-func getSubscriptionToken(bookId, emailAddress string) string {
-	cfg := config.LoadConfig()
+func getSubscriptionToken(bookId, emailAddress string) (token string, err error) {
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		return
+	}
+
 	h := md5.Sum([]byte(fmt.Sprintf("%s-%s-%s", bookId, emailAddress, cfg.Main.HashSalt)))
-	return fmt.Sprintf("%x", h)
+	token = fmt.Sprintf("%x", h)
+
+	return
 }
 
 func (db *DbConn) NewSubscription(bookId, emailAddr string) error {

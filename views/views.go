@@ -5,7 +5,6 @@ import (
 	"net/url"
 
 	"books"
-	"config"
 )
 
 type emailView struct {
@@ -70,10 +69,7 @@ func ConfirmationSuccessRenderer(emailAddress string, book books.BookMeta) *TplR
 	}
 }
 
-func EmailRenderer(token, content string, book books.BookMeta, sub books.SubscriptionMeta) *TplRenderer {
-	cfg := config.LoadConfig()
-
-	urlBase := cfg.Main.UrlBase
+func EmailRenderer(token, content string, urlBase string, book books.BookMeta, sub books.SubscriptionMeta) *TplRenderer {
 	params := url.Values{"email_address": {sub.Email}, "book_id": {book.BookId}, "token": {token}}
 	unsubUrl := fmt.Sprintf("%s/subscriptions/unsubscribe/?%s", urlBase, params.Encode())
 
@@ -84,11 +80,9 @@ func EmailRenderer(token, content string, book books.BookMeta, sub books.Subscri
 	}
 }
 
-func ConfirmEmailRenderer(emailAddress, token string, book books.BookMeta) *TplRenderer {
-	cfg := config.LoadConfig()
-
+func ConfirmEmailRenderer(emailAddress, token, urlBase string, book books.BookMeta) *TplRenderer {
 	params := url.Values{"email_address": {emailAddress}, "book_id": {book.BookId}, "token": {token}}
-	confirmUrl := fmt.Sprintf("%s/subscriptions/confirm/?%s", cfg.Main.UrlBase, params.Encode())
+	confirmUrl := fmt.Sprintf("%s/subscriptions/confirm/?%s", urlBase, params.Encode())
 
 	return &TplRenderer{
 		"confirm_email",

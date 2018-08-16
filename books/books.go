@@ -49,7 +49,10 @@ func getPath(bookId string, chapterInd int) string {
 }
 
 func getBucket(ctx context.Context) (bkt *storage.BucketHandle, err error) {
-	cfg := config.LoadConfig()
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		return
+	}
 
 	client, err := storage.NewClient(ctx)
 	if err != nil {

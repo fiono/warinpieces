@@ -13,7 +13,10 @@ import (
 )
 
 func SendMail(to, subject, html, plaintext string, ctx context.Context) error {
-	cfg := config.LoadConfig()
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		return err
+	}
 
 	sg := sendgrid.NewSendGridClientWithApiKey(cfg.Email.SendgridApiKey)
 	sg.Client = urlfetch.Client(ctx)

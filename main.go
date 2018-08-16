@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"books"
+	"config"
 	"views"
 
 	"github.com/gorilla/mux"
@@ -108,10 +109,18 @@ func sendEmailForSubscriptionSingle(subscriptionId string, ctx context.Context) 
 		return err
 	}
 
-	token := getSubscriptionToken(sub.BookId, sub.Email)
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		return err
+	}
+
+	token, err := getSubscriptionToken(sub.BookId, sub.Email)
+	if err != nil {
+		return err
+	}
 
 	content := strings.Replace(body, "\n\n", "<br/><br/>", -1)
-	emailBody, err := views.EmailRenderer(token, content, book, sub).GetView()
+	emailBody, err := views.EmailRenderer(token, content, cfg.Main.UrlBase, book, sub).GetView()
 	if err != nil {
 		return err
 	}
@@ -215,8 +224,17 @@ func newSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token := getSubscriptionToken(book.BookId, emailAddress)
-	emailBody, err := views.ConfirmEmailRenderer(emailAddress, token, book).GetView()
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		return
+	}
+
+	token, err := getSubscriptionToken(book.BookId, emailAddress)
+	if err != nil {
+		return
+	}
+
+	emailBody, err := views.ConfirmEmailRenderer(emailAddress, token, cfg.Main.UrlBase, book).GetView()
 	if err != nil {
 		reportAndReturnInternalError(w, r, err)
 		return
@@ -243,7 +261,17 @@ func singleUnsubscribeHandler(w http.ResponseWriter, r *http.Request) {
 	emailAddress := r.URL.Query().Get("email_address")
 	bookId := r.URL.Query().Get("book_id")
 
-	if token == getSubscriptionToken(bookId, emailAddress) {
+	cmpToken, err := getSubscriptionToken(bookId, emailAddress)
+	if err != nil {
+		return
+	}
+
+	if token == cmpToken {
+		if err != nil {
+			reportAndReturnInternalError(w, r, err)
+			return
+		}
+
 		err := db.DeactivateSingle(emailAddress, bookId)
 		if err != nil {
 			reportAndReturnInternalError(w, r, err)
@@ -275,7 +303,12 @@ func validateSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
 	emailAddress := r.URL.Query().Get("email_address")
 	bookId := r.URL.Query().Get("book_id")
 
-	if token == getSubscriptionToken(bookId, emailAddress) { // this should actually be time-sensitive ¯\_(ツ)_/¯
+	cmpToken, err := getSubscriptionToken(bookId, emailAddress)
+	if err != nil {
+		return
+	}
+
+	if token == cmpToken { // this should actually be time-sensitive ¯\_(ツ)_/¯
 		sub, err := db.GetSubscriptionByData(bookId, emailAddress)
 		if err != nil {
 			reportAndReturnInternalError(w, r, err)

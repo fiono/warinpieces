@@ -2,7 +2,6 @@ package config
 
 import (
 	"io/ioutil"
-	"log"
 
 	"github.com/BurntSushi/toml"
 )
@@ -36,16 +35,16 @@ type dbConfig struct {
 	DbName         string `toml:"db_name"`
 }
 
-func LoadConfig() GutenConfig {
+func LoadConfig() (conf GutenConfig, err error) {
 	blob, err := ioutil.ReadFile("cfg/app.toml")
 	if err != nil {
-		log.Println(err)
+		return
 	}
 
-	var conf GutenConfig
-	if _, err := toml.Decode(string(blob), &conf); err != nil {
-		log.Println(err)
+	_, err = toml.Decode(string(blob), &conf)
+	if err != nil {
+		return
 	}
 
-	return conf
+	return
 }
